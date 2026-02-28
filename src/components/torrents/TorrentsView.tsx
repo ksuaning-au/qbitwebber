@@ -11,7 +11,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ArrowUpDownIcon
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -42,6 +43,7 @@ function formatSize(bytes: number): string {
 }
 
 function formatTime(seconds: number): string {
+  if (seconds < 0 || seconds >= 8640000) return '--'
   if (seconds < 60) return `${seconds}s`
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`
@@ -85,6 +87,17 @@ type SortField = 'name' | 'size' | 'progress' | 'dlspeed' | 'upspeed' | 'eta' | 
 type SortDirection = 'asc' | 'desc'
 
 const PAGE_SIZE = 20
+
+const sortLabels: Record<SortField, string> = {
+  name: 'Name',
+  state: 'Status',
+  progress: 'Progress',
+  size: 'Size',
+  dlspeed: 'Download',
+  upspeed: 'Upload',
+  eta: 'ETA',
+  ratio: 'Ratio',
+}
 
 function SortButton({ field, currentField, direction, onClick, children }: {
   field: SortField
@@ -226,6 +239,46 @@ export function TorrentsView() {
           </Button>
         </div>
       )}
+
+      {/* Mobile Sort Dropdown */}
+      <div className="md:hidden flex items-center justify-between">
+        <span className="text-sm text-muted-foreground">{sortedTorrents.length} torrents</span>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <ArrowUpDownIcon className="h-4 w-4 mr-2" />
+              Sort: {sortLabels[sortField]}
+              {sortDirection === 'asc' ? ' ↑' : ' ↓'}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleSort('name')}>
+              Name {sortField === 'name' && (sortDirection === 'asc' ? '↑' : '↓')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleSort('state')}>
+              Status {sortField === 'state' && (sortDirection === 'asc' ? '↑' : '↓')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleSort('progress')}>
+              Progress {sortField === 'progress' && (sortDirection === 'asc' ? '↑' : '↓')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleSort('size')}>
+              Size {sortField === 'size' && (sortDirection === 'asc' ? '↑' : '↓')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleSort('dlspeed')}>
+              Download {sortField === 'dlspeed' && (sortDirection === 'asc' ? '↑' : '↓')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleSort('upspeed')}>
+              Upload {sortField === 'upspeed' && (sortDirection === 'asc' ? '↑' : '↓')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleSort('eta')}>
+              ETA {sortField === 'eta' && (sortDirection === 'asc' ? '↑' : '↓')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleSort('ratio')}>
+              Ratio {sortField === 'ratio' && (sortDirection === 'asc' ? '↑' : '↓')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
       {/* Desktop Table */}
       <div className="hidden md:block">
