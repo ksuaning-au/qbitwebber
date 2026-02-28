@@ -42,17 +42,17 @@ function FileTree({ files, hash, onPriorityChange }: FileTreeProps) {
 
   const buildTree = (): TreeNode[] => {
     const root: TreeNode[] = []
-    
+
     files.forEach(file => {
       const parts = file.name.split('/')
       let current = root
-      
+
       parts.forEach((part, idx) => {
         const isLast = idx === parts.length - 1
         const path = parts.slice(0, idx + 1).join('/')
-        
+
         let node = current.find(n => n.name === part)
-        
+
         if (!node) {
           node = {
             name: part,
@@ -66,27 +66,27 @@ function FileTree({ files, hash, onPriorityChange }: FileTreeProps) {
           }
           current.push(node)
         }
-        
+
         if (!isLast) {
           current = node.children
         }
       })
     })
-    
+
     return root
   }
 
   const renderNode = (node: TreeNode, depth: number = 0) => {
     const indent = depth * 16
-    
+
     if (node.isFile) {
       const isSelected = node.priority > 0
       return (
-        <div 
+        <div
           key={node.path}
           className="flex items-center gap-2 py-1 px-2 hover:bg-muted/50 cursor-pointer"
           style={{ paddingLeft: indent }}
-          onClick={() => onPriorityChange(String(node.index), isSelected ? 0 : 2)}
+          onClick={() => onPriorityChange(String(node.index), isSelected ? 0 : 1)}
         >
           {isSelected ? (
             <CheckSquare className="h-4 w-4 text-green-500 flex-shrink-0" />
@@ -105,7 +105,7 @@ function FileTree({ files, hash, onPriorityChange }: FileTreeProps) {
 
     return (
       <div key={node.path}>
-        <div 
+        <div
           className="flex items-center gap-2 py-1 px-2 font-medium text-sm"
           style={{ paddingLeft: indent }}
         >
@@ -139,7 +139,7 @@ export function TorrentFilesDialog({ torrent, open, onOpenChange }: TorrentFiles
 
   const handlePriorityChange = async (id: string, priority: number) => {
     if (!torrent) return
-    
+
     try {
       await setPriority.mutateAsync({ hash: torrent.hash, id, priority })
     } catch {
@@ -159,7 +159,7 @@ export function TorrentFilesDialog({ torrent, open, onOpenChange }: TorrentFiles
         <DialogHeader>
           <DialogTitle className="truncate">{torrent.name}</DialogTitle>
         </DialogHeader>
-        
+
         <div className="flex items-center justify-between text-sm text-muted-foreground px-4 py-2 border-b">
           <span>{files?.length || 0} files</span>
           <span>Selected: {selectedCount} ({formatSize(selectedSize)} / {formatSize(totalSize)})</span>
@@ -169,8 +169,8 @@ export function TorrentFilesDialog({ torrent, open, onOpenChange }: TorrentFiles
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">Loading files...</div>
           ) : files && files.length > 0 ? (
-            <FileTree 
-              files={files} 
+            <FileTree
+              files={files}
               hash={torrent.hash}
               onPriorityChange={handlePriorityChange}
             />

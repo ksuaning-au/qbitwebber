@@ -205,14 +205,6 @@ export function SearchView() {
         </CardContent>
       </Card>
 
-        {isSearching && (
-          <div className="text-center py-4">
-            <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-            <p className="text-sm text-muted-foreground mt-2">
-              Searching... {results.length > 0 && `(${results.length} results found)`}
-            </p>
-          </div>
-        )}
 
       {searched && !isSearching && results.length === 0 && (
         <div className="text-center py-8 text-muted-foreground">
