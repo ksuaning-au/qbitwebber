@@ -50,20 +50,26 @@ function formatTime(seconds: number): string {
   return `${Math.floor(seconds / 86400)}d`
 }
 
-function getStateColor(state: string): string {
+function getStateColor(state: string, completedOn: number): string {
+  if ((state === 'pausedDL' || state === 'pausedUP') && completedOn > 0) return 'text-green-500'
   if (state === 'downloading' || state === 'forcedDL' || state === 'metaDL') return 'text-blue-500'
-  if (state === 'uploading' || state === 'forcedUP' || state === 'checkingUP') return 'text-green-500'
+  if (state === 'uploading' || state === 'forcedUP' || state === 'checkingUP' || state === 'completed' || state === 'seeding') return 'text-green-500'
   if (state === 'pausedDL' || state === 'pausedUP') return 'text-yellow-500'
   if (state === 'error') return 'text-red-500'
   return 'text-muted-foreground'
 }
 
-function getStateLabel(state: string): string {
+function getStateLabel(state: string, completedOn: number): string {
+  if ((state === 'pausedDL' || state === 'pausedUP') && completedOn > 0) {
+    return 'Completed'
+  }
   const labels: Record<string, string> = {
     downloading: 'Downloading',
     pausedDL: 'Paused',
     pausedUP: 'Paused',
     uploading: 'Seeding',
+    completed: 'Completed',
+    seeding: 'Seeding',
     stalledDL: 'Stalled',
     stalledUP: 'Stalled',
     checkingUP: 'Checking',
@@ -352,8 +358,8 @@ export function TorrentsView() {
                           {torrent.name}
                         </TableCell>
                         <TableCell>
-                          <span className={`text-xs ${getStateColor(torrent.state)}`}>
-                            {getStateLabel(torrent.state)}
+                          <span className={`text-xs ${getStateColor(torrent.state, torrent.completion_on)}`}>
+                            {getStateLabel(torrent.state, torrent.completion_on)}
                           </span>
                         </TableCell>
                         <TableCell>
@@ -427,8 +433,8 @@ export function TorrentsView() {
                   />
                   <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedCard(isExpanded ? null : torrent.hash)}>
                     <div className="flex items-center justify-between text-[10px]">
-                      <span className={`${getStateColor(torrent.state)} flex-shrink-0`}>
-                        {getStateLabel(torrent.state)}
+                      <span className={`${getStateColor(torrent.state, torrent.completion_on)} flex-shrink-0`}>
+                        {getStateLabel(torrent.state, torrent.completion_on)}
                       </span>
                       <span className="text-muted-foreground flex-shrink-0 ml-2">
                         {Math.round(torrent.progress * 100)}%
