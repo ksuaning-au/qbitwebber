@@ -176,3 +176,20 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 }
+
+
+@font-face {
+  font-family: 'Silkscreen'; /* Give it a name */
+  src: url('./assets/fonts/Silkscreen-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap; /* Helps with loading performance */
+}
+
+@font-face {
+  font-family: 'Doto'; /* Give it a name */
+  src: url('./assets/fonts/Doto.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap; /* Helps with loading performance */
+}

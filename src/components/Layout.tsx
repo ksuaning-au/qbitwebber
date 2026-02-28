@@ -26,7 +26,7 @@ interface LayoutProps {
 
 export function Layout({ activeTab, onTabChange, children }: LayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const { logout, host } = useAuth()
+  const { logout } = useAuth()
   const { data: transferInfo } = useTransferInfo()
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -52,10 +52,7 @@ export function Layout({ activeTab, onTabChange, children }: LayoutProps) {
             >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
-            <h1 className="text-lg font-semibold hidden sm:block">qBittorrent</h1>
-            <span className="text-xs text-muted-foreground hidden md:inline">
-              {host.replace(/^https?:\/\//, '')}
-            </span>
+            <h1 className="text-lg font-semibold hidden sm:block" style={{fontFamily: "Silkscreen", fontSize: 24}}>qBittorrent</h1>
           </div>
           
           {/* Transfer stats */}

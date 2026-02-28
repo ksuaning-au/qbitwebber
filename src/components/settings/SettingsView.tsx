@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { toast } from '@/hooks/use-toast'
 
 export function SettingsView() {
-  const { logout, host, username } = useAuth()
+  const { logout, username } = useAuth()
   const [newPassword, setNewPassword] = useState('')
 
   const handleLogout = async () => {
@@ -29,10 +29,6 @@ export function SettingsView() {
           <CardDescription>Current connection settings</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Host</Label>
-            <Input value={host} disabled />
-          </div>
           <div className="space-y-2">
             <Label>Username</Label>
             <Input value={username} disabled />

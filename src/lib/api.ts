@@ -23,15 +23,11 @@ class QBittorrentClient {
     this.password = password || ''
   }
 
-  setCredentials(_host: string, username: string, password: string) {
+  setCredentials(username: string, password: string) {
     this.username = username
     this.password = password
     localStorage.setItem('qbit_user', username)
     this.sid = null
-  }
-
-  getHost() {
-    return 'http://192.168.15.19:8000'
   }
 
   getUsername() {

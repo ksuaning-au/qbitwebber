@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/hooks/useAuth'
 
 export function LoginForm() {
-  const [host, setHost] = useState('http://localhost:8080')
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -17,7 +16,7 @@ export function LoginForm() {
     setError('')
     
     try {
-      await login(host, username, password)
+      await login(username, password)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
     }
@@ -31,17 +30,6 @@ export function LoginForm() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="host">Host</Label>
-              <Input
-                id="host"
-                type="text"
-                placeholder="http://localhost:8080"
-                value={host}
-                onChange={(e) => setHost(e.target.value)}
-                required
-              />
-            </div>
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
               <Input

@@ -4,9 +4,8 @@ import { qbitClient } from '@/lib/api'
 interface AuthContextType {
   isAuthenticated: boolean
   isLoading: boolean
-  host: string
   username: string
-  login: (host: string, username: string, password: string) => Promise<void>
+  login: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -15,16 +14,13 @@ const AuthContext = createContext<AuthContextType | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const [host, setHost] = useState('')
 
   useEffect(() => {
-    const savedHost = localStorage.getItem('qbit_host')
     const savedUser = localStorage.getItem('qbit_user')
     const savedPass = localStorage.getItem('qbit_pass')
     
-    if (savedHost && savedUser && savedPass) {
-      setHost(savedHost)
-      qbitClient.setCredentials(savedHost, savedUser, savedPass)
+    if (savedUser && savedPass) {
+      qbitClient.setCredentials(savedUser, savedPass)
       qbitClient.login()
         .then((success) => {
           setIsAuthenticated(success)
@@ -38,14 +34,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const login = async (newHost: string, newUsername: string, password: string) => {
+  const login = async (newUsername: string, password: string) => {
     setIsLoading(true)
     try {
-      qbitClient.setCredentials(newHost, newUsername, password)
+      qbitClient.setCredentials(newUsername, password)
       const success = await qbitClient.login()
       if (success) {
         localStorage.setItem('qbit_pass', password)
-        setHost(newHost)
         setIsAuthenticated(true)
       } else {
         throw new Error('Login failed')
@@ -65,7 +60,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={{ 
       isAuthenticated, 
       isLoading, 
-      host,
       username: qbitClient.getUsername(),
       login, 
       logout 
