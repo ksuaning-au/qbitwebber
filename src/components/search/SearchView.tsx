@@ -95,6 +95,25 @@ export function SearchView() {
     }
   }
 
+  const handleCancelSearch = async () => {
+    // set both ref and state (state is used for UI, ref for immediate loop control)
+    cancelSearchRef.current = true
+    setCancelSearch(true)
+
+    const id = currentSearchIdRef.current
+    if (id != null) {
+      try {
+        await qbitClient.stopSearch(id)
+        toast.info('Search cancelled')
+      } catch (err) {
+        console.warn('Failed to stop search on server', err)
+        toast.error('Failed to cancel search on server')
+      }
+    } else {
+      toast.info('Search cancelled')
+    }
+  }
+
   const sortedResults = useMemo(() => {
     return [...results].sort((a, b) => {
       let aVal: string | number = a[sortField]
@@ -170,34 +189,30 @@ export function SearchView() {
                 <SearchIcon className="h-4 w-4" />
               )}
             </Button>
+            {isSearching && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleCancelSearch}
+                aria-label="Cancel search"
+                className="ml-2"
+              >
+                Cancel
+              </Button>
+            )}
           </form>
         </CardContent>
       </Card>
 
-      {isSearching && (
-        <div className="text-center py-4">
-          <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-          <p className="text-sm text-muted-foreground mt-2">
-            Searching... {results.length > 0 && `(${results.length} results found)`}
-          </p>
-          <Button onClick={async () => {
-            // set both ref and state (state is used for UI, ref for immediate loop control)
-            cancelSearchRef.current = true
-            setCancelSearch(true)
-
-            const id = currentSearchIdRef.current
-            if (id != null) {
-              try {
-                await qbitClient.stopSearch(id)
-              } catch (err) {
-                console.warn('Failed to stop search on server', err)
-              }
-            }
-          }}>
-            Cancel
-          </Button>
-        </div>
-      )}
+        {isSearching && (
+          <div className="text-center py-4">
+            <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+            <p className="text-sm text-muted-foreground mt-2">
+              Searching... {results.length > 0 && `(${results.length} results found)`}
+            </p>
+          </div>
+        )}
 
       {searched && !isSearching && results.length === 0 && (
         <div className="text-center py-8 text-muted-foreground">
