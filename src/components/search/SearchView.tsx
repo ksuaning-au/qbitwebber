@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
-import { Search as SearchIcon, Loader2, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Download } from 'lucide-react'
+import { Search as SearchIcon, Loader2, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Download, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -192,13 +192,13 @@ export function SearchView() {
             {isSearching && (
               <Button
                 type="button"
-                variant="outline"
-                size="sm"
+                variant="ghost"
+                size="icon"
                 onClick={handleCancelSearch}
                 aria-label="Cancel search"
                 className="ml-2"
               >
-                Cancel
+                <X className="h-4 w-4" />
               </Button>
             )}
           </form>
