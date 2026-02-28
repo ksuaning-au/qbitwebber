@@ -265,6 +265,17 @@ class QBittorrentClient {
     })
   }
 
+  async stopSearch(id: number): Promise<void> {
+    const body = `id=${id}`
+    await this.request('/api/v2/search/stop', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body,
+    })
+  }
+
   async getSearchResults(id: number): Promise<{ results: SearchResult[]; status: string }> {
     return this.request(`/api/v2/search/results?id=${id}`)
   }

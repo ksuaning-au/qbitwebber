@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { Search as SearchIcon, Loader2, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -46,11 +46,15 @@ export function SearchView() {
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [cancelSearch, setCancelSearch] = useState(false);
+  const cancelSearchRef = useRef(false)
+  const currentSearchIdRef = useRef<number | null>(null)
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!query.trim()) return
-
+    setCancelSearch(false)
+    cancelSearchRef.current = false
     setIsSearching(true)
     setSearched(true)
     setResults([])
@@ -59,13 +63,14 @@ export function SearchView() {
     try {
       const { id } = await qbitClient.startSearch(query)
 
+      currentSearchIdRef.current = id
+
       if (!id) {
         toast.error('Search not available - no plugins configured')
         return
       }
-
       let attempts = 0
-      while (attempts < 60) {
+      while (attempts < 60 && !cancelSearchRef.current) {
         await new Promise(resolve => setTimeout(resolve, 1000))
 
         const { results: searchResults, status } = await qbitClient.getSearchResults(id)
@@ -84,6 +89,9 @@ export function SearchView() {
       toast.error('Search not available. Please configure search plugins in qBittorrent.')
     } finally {
       setIsSearching(false)
+      currentSearchIdRef.current = null
+      cancelSearchRef.current = false
+      setCancelSearch(false)
     }
   }
 
@@ -172,6 +180,22 @@ export function SearchView() {
           <p className="text-sm text-muted-foreground mt-2">
             Searching... {results.length > 0 && `(${results.length} results found)`}
           </p>
+          <Button onClick={async () => {
+            // set both ref and state (state is used for UI, ref for immediate loop control)
+            cancelSearchRef.current = true
+            setCancelSearch(true)
+
+            const id = currentSearchIdRef.current
+            if (id != null) {
+              try {
+                await qbitClient.stopSearch(id)
+              } catch (err) {
+                console.warn('Failed to stop search on server', err)
+              }
+            }
+          }}>
+            Cancel
+          </Button>
         </div>
       )}
 
