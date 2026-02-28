@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
-import { Search as SearchIcon, Loader2, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Download, X } from 'lucide-react'
+import { Search as SearchIcon, Loader2, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Download, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -19,6 +19,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { toast } from '@/hooks/use-toast'
 import { qbitClient } from '@/lib/api'
 import type { SearchResult } from '@/types'
@@ -46,6 +52,7 @@ export function SearchView() {
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [expandedResult, setExpandedResult] = useState<number | null>(null)
   const [cancelSearch, setCancelSearch] = useState(false);
   const cancelSearchRef = useRef(false)
   const currentSearchIdRef = useRef<number | null>(null)
@@ -168,6 +175,14 @@ export function SearchView() {
       : <ArrowDown className="h-4 w-4 ml-1 inline" />
   }
 
+  const sortLabels: Record<SortField, string> = {
+    fileName: 'Name',
+    fileSize: 'Size',
+    nbSeeders: 'Seeds',
+    nbLeechers: 'Leeches',
+    siteUrl: 'Source',
+  }
+
   return (
     <div className="space-y-4">
       <Card>
@@ -213,120 +228,218 @@ export function SearchView() {
       )}
 
       {results.length > 0 && (
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[300px]">
-                      <button onClick={() => handleSort('fileName')} className="flex items-center hover:text-foreground">
-                        Name <SortIcon field="fileName" />
-                      </button>
-                    </TableHead>
-                    <TableHead>
-                      <button onClick={() => handleSort('fileSize')} className="flex items-center hover:text-foreground">
-                        Size <SortIcon field="fileSize" />
-                      </button>
-                    </TableHead>
-                    <TableHead>
-                      <button onClick={() => handleSort('nbSeeders')} className="flex items-center hover:text-foreground">
-                        Seeds <SortIcon field="nbSeeders" />
-                      </button>
-                    </TableHead>
-                    <TableHead>
-                      <button onClick={() => handleSort('nbLeechers')} className="flex items-center hover:text-foreground">
-                        Leeches <SortIcon field="nbLeechers" />
-                      </button>
-                    </TableHead>
-                    <TableHead>
-                      <button onClick={() => handleSort('siteUrl')} className="flex items-center hover:text-foreground">
-                        Source <SortIcon field="siteUrl" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="w-[100px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedResults.map((result, index) => (
-                    <TableRow
-                      key={index}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => result.fileUrl && setSelectedResult(result)}
-                    >
-                      <TableCell className="font-medium truncate max-w-[300px]">
-                        {result.fileName}
-                      </TableCell>
-                      <TableCell>{formatSize(result.fileSize)}</TableCell>
-                      <TableCell className="text-green-500">{result.nbSeeders}</TableCell>
-                      <TableCell className="text-red-500">{result.nbLeechers}</TableCell>
-                      <TableCell className="text-muted-foreground truncate max-w-[150px]">
-                        {result.siteUrl}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          {result.fileUrl && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setSelectedResult(result)
-                              }}
-                            >
-                              <Download className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {result.descrLink && (
-                            <a
-                              href={result.descrLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="flex items-center justify-center w-8 h-8 rounded hover:bg-accent"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+        <>
+          {/* Mobile Sort Dropdown */}
+          <div className="md:hidden flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">{sortedResults.length} results</span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <ArrowUpDown className="h-4 w-4 mr-2" />
+                  Sort: {sortLabels[sortField]}
+                  {sortDirection === 'asc' ? ' ↑' : ' ↓'}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleSort('fileName')}>
+                  Name {sortField === 'fileName' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleSort('fileSize')}>
+                  Size {sortField === 'fileSize' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleSort('nbSeeders')}>
+                  Seeds {sortField === 'nbSeeders' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleSort('nbLeechers')}>
+                  Leeches {sortField === 'nbLeechers' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleSort('siteUrl')}>
+                  Source {sortField === 'siteUrl' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-2 border-t">
-                <div className="text-sm text-muted-foreground">
-                  Showing {(currentPage - 1) * PAGE_SIZE + 1} to {Math.min(currentPage * PAGE_SIZE, sortedResults.length)} of {sortedResults.length} results
+          {/* Desktop Table */}
+          <div className="hidden md:block">
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[300px]">
+                          <button onClick={() => handleSort('fileName')} className="flex items-center hover:text-foreground">
+                            Name <SortIcon field="fileName" />
+                          </button>
+                        </TableHead>
+                        <TableHead>
+                          <button onClick={() => handleSort('fileSize')} className="flex items-center hover:text-foreground">
+                            Size <SortIcon field="fileSize" />
+                          </button>
+                        </TableHead>
+                        <TableHead>
+                          <button onClick={() => handleSort('nbSeeders')} className="flex items-center hover:text-foreground">
+                            Seeds <SortIcon field="nbSeeders" />
+                          </button>
+                        </TableHead>
+                        <TableHead>
+                          <button onClick={() => handleSort('nbLeechers')} className="flex items-center hover:text-foreground">
+                            Leeches <SortIcon field="nbLeechers" />
+                          </button>
+                        </TableHead>
+                        <TableHead>
+                          <button onClick={() => handleSort('siteUrl')} className="flex items-center hover:text-foreground">
+                            Source <SortIcon field="siteUrl" />
+                          </button>
+                        </TableHead>
+                        <TableHead className="w-[100px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedResults.map((result, index) => (
+                        <TableRow
+                          key={index}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => result.fileUrl && setSelectedResult(result)}
+                        >
+                          <TableCell className="font-medium truncate max-w-[300px]">
+                            {result.fileName}
+                          </TableCell>
+                          <TableCell>{formatSize(result.fileSize)}</TableCell>
+                          <TableCell className="text-green-500">{result.nbSeeders}</TableCell>
+                          <TableCell className="text-red-500">{result.nbLeechers}</TableCell>
+                          <TableCell className="text-muted-foreground truncate max-w-[150px]">
+                            {result.siteUrl}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              {result.fileUrl && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setSelectedResult(result)
+                                  }}
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {result.descrLink && (
+                                <a
+                                  href={result.descrLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="flex items-center justify-center w-8 h-8 rounded hover:bg-accent"
+                                >
+                                  <ExternalLink className="h-4 w-4" />
+                                </a>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(p => p - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span className="text-sm">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(p => p + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between px-4 py-2 border-t">
+                    <div className="text-sm text-muted-foreground">
+                      Showing {(currentPage - 1) * PAGE_SIZE + 1} to {Math.min(currentPage * PAGE_SIZE, sortedResults.length)} of {sortedResults.length} results
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => p - 1)}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="text-sm">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => p + 1)}
+                        disabled={currentPage === totalPages}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="md:hidden space-y-2">
+            {paginatedResults.map((result, index) => {
+              const isExpanded = expandedResult === index
+              return (
+                <Card key={index} className="py-3">
+                  <CardContent className="px-3">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 min-w-0 cursor-pointer" onClick={() => result.fileUrl && setSelectedResult(result)}>
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="text-muted-foreground">{result.nbSeeders} seeds • {result.nbLeechers} leeches</span>
+                        </div>
+                        <p className="font-medium text-xs break-words max-w-[240px]">{result.fileName}</p>
+                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                          <span className="flex-shrink-0">{formatSize(result.fileSize)}</span>
+                          <span className="truncate">{result.siteUrl}</span>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="mt-1 pt-1 border-t space-y-1 text-[10px]">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Size:</span>
+                              <span>{formatSize(result.fileSize)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Seeds:</span>
+                              <span>{result.nbSeeders}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Leeches:</span>
+                              <span>{result.nbLeechers}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Source:</span>
+                              <span className="truncate">{result.siteUrl}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0" onClick={(e) => { e.stopPropagation(); setExpandedResult(isExpanded ? null : index) }} aria-expanded={isExpanded} aria-label={isExpanded ? 'Collapse' : 'Expand'}>
+                        {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      </Button>
+                    </div>
+
+                    <div className="flex items-center gap-1 mt-1">
+                      {result.fileUrl && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setSelectedResult(result) }} aria-label="Download">
+                          <Download className="h-3 w-3" />
+                        </Button>
+                      )}
+                      {result.descrLink && (
+                        <a href={result.descrLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex items-center justify-center w-8 h-8 rounded hover:bg-accent" aria-label="Open details">
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        </>
       )}
 
       {/* Download Dialog */}
