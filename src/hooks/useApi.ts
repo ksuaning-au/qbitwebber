@@ -27,11 +27,11 @@ export function useTorrents(filter?: string, category?: string) {
   })
 }
 
-export function useTorrentFiles(hash: string) {
+export function useTorrentFiles(hash: string | null) {
   return useQuery({
     queryKey: ['torrent', hash, 'files'],
-    queryFn: () => qbitClient.getTorrentFiles(hash),
-    enabled: !!hash && !!qbitClient.isConfigured(),
+    queryFn: () => hash ? qbitClient.getTorrentFiles(hash) : Promise.resolve([]),
+    enabled: !!hash,
   })
 }
 
@@ -74,6 +74,18 @@ export function useDeleteTorrents() {
       qbitClient.deleteTorrents(hashes, deleteFiles),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['torrents'] })
+    },
+  })
+}
+
+export function useSetFilePriority() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: ({ hash, id, priority }: { hash: string; id: string; priority: number }) =>
+      qbitClient.setFilePriority(hash, id, priority),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['torrent', variables.hash, 'files'] })
     },
   })
 }

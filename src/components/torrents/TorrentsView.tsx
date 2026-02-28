@@ -12,7 +12,8 @@ import {
   ChevronRight,
   ChevronDown,
   ChevronUp,
-  ArrowUpDownIcon
+  ArrowUpDownIcon,
+  Files
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -31,6 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { TorrentFilesDialog } from './TorrentFilesDialog'
 import { useTorrents, usePauseTorrents, useResumeTorrents, useDeleteTorrents } from '@/hooks/useApi'
 import type { Torrent } from '@/types'
 
@@ -133,6 +135,7 @@ export function TorrentsView() {
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [currentPage, setCurrentPage] = useState(1)
+  const [filesDialogTorrent, setFilesDialogTorrent] = useState<Torrent | null>(null)
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
 
   const sortedTorrents = useMemo(() => {
@@ -354,7 +357,7 @@ export function TorrentsView() {
                             onCheckedChange={(checked) => handleSelect(torrent.hash, !!checked)}
                           />
                         </TableCell>
-                        <TableCell className="font-medium truncate max-w-[300px]">
+                        <TableCell className="text-xs truncate max-w-[300px]">
                           {torrent.name}
                         </TableCell>
                         <TableCell>
@@ -387,8 +390,11 @@ export function TorrentsView() {
                         <TableCell className="text-sm">{torrent.ratio.toFixed(2)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => isActive ? pauseMutation.mutate([torrent.hash]) : resumeMutation.mutate([torrent.hash])}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 mr-2" onClick={() => isActive ? pauseMutation.mutate([torrent.hash]) : resumeMutation.mutate([torrent.hash])}>
                               {isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setFilesDialogTorrent(torrent)}>
+                              <Files className="h-4 w-4 mr-2" />
                             </Button>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -490,6 +496,9 @@ export function TorrentsView() {
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => isActive ? pauseMutation.mutate([torrent.hash]) : resumeMutation.mutate([torrent.hash])}>
                     {isActive ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                   </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setFilesDialogTorrent(torrent)}>
+                    <Files className="h-3 w-3" />
+                  </Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteMutation.mutate({ hashes: [torrent.hash], deleteFiles: false })}>
                     <Trash2 className="h-3 w-3" />
                   </Button>
@@ -519,6 +528,12 @@ export function TorrentsView() {
           </div>
         </div>
       )}
+
+      <TorrentFilesDialog
+        torrent={filesDialogTorrent}
+        open={!!filesDialogTorrent}
+        onOpenChange={(open) => !open && setFilesDialogTorrent(null)}
+      />
     </div>
   )
 }

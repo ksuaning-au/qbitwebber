@@ -135,6 +135,18 @@ class QBittorrentClient {
     return this.request<TorrentFile[]>(`/api/v2/torrents/files?hash=${hash}`)
   }
 
+  async setFilePriority(hash: string, id: string, priority: number): Promise<void> {
+    const formData = new URLSearchParams()
+    formData.append('hash', hash)
+    formData.append('id', id)
+    formData.append('priority', priority.toString())
+
+    await this.request('/api/v2/torrents/filePrio', {
+      method: 'POST',
+      body: formData,
+    })
+  }
+
   async getTorrentTrackers(hash: string): Promise<TorrentTracker[]> {
     return this.request<TorrentTracker[]>(`/api/v2/torrents/trackers?hash=${hash}`)
   }
