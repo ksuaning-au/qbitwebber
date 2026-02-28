@@ -99,7 +99,7 @@ export function Layout({ activeTab, onTabChange, children }: LayoutProps) {
       {/* Desktop sidebar + main content */}
       <div className="flex">
         {/* Desktop sidebar */}
-        <aside className="hidden md:flex w-48 flex-col border-r p-2 gap-1">
+        <aside className="hidden md:flex w-48 flex-col border-r p-2 gap-1 sticky top-14 self-start h-[calc(100vh-56px)] overflow-y-auto pb-4">
           {tabs.map((tab) => (
             <Button
               key={tab.id}
