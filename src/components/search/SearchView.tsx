@@ -185,11 +185,11 @@ export function SearchView() {
 
   return (
     <div className="space-y-4">
-      <Card>
+      <Card className="gap-2">
         <CardHeader>
           <CardTitle>Search Torrents</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="py-2">
           <form onSubmit={handleSearch} className="flex gap-2">
             <Input
               placeholder="Search query..."
