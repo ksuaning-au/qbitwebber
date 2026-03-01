@@ -17,6 +17,10 @@ Built with React, Vite, and TypeScript.
 - Settings (Simplified Compared to Offical Web UI)
 - Mobile-friendly responsive design
 
+## Installation
+
+Download the zip of this repository (or clone it) and then configure qbittorrent custom web UI path to the release directory.
+
 ## Development
 
 ```bash
