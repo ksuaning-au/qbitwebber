@@ -39,8 +39,8 @@ npm run release
 ```
 
 ## Disclamer
-
-I built this on a weekend because I felt the other options were a bit cluttered. It is likely missing things. I may or maynot maintain this.
+ 
+To keep this from getting too cluttered it is likely missing things. I may or maynot maintain this. Also you should only ever use this to download linux distros and nothing else.
 
 ## Contributions
 
