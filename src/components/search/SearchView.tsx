@@ -2,7 +2,7 @@ import { useState, useMemo, useRef } from 'react'
 import { Search as SearchIcon, Loader2, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Download, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -186,8 +186,9 @@ export function SearchView() {
   return (
     <div className="space-y-4">
       <Card className="gap-2">
-        <CardHeader>
+        <CardHeader className='flex justify-between'>
           <CardTitle>Search Torrents</CardTitle>
+          {/* <CardDescription className='text-xs'>Results {results.length}</CardDescription> */}
         </CardHeader>
         <CardContent className="py-2">
           <form onSubmit={handleSearch} className="flex gap-2">
