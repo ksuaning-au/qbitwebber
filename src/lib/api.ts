@@ -11,6 +11,8 @@ import type {
   TransferInfo
 } from '@/types'
 
+import { demoClient } from './demoClient'
+
 const DEFAULT_USER = localStorage.getItem('qbit_user') || 'admin'
 
 class QBittorrentClient {
@@ -292,4 +294,4 @@ class QBittorrentClient {
   }
 }
 
-export const qbitClient = new QBittorrentClient()
+export const qbitClient = import.meta.env.VITE_DEMO_MODE ? demoClient : new QBittorrentClient()

@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "release": "npm run build && mkdir -p release/public && cp -r dist/* release/public"
+    "release": "npm run build && mkdir -p release/public && cp -r dist/* release/public",
+    "demo": "VITE_DEMO_MODE=true npm run dev",
+    "demo:build": "VITE_DEMO_MODE=true npm run build && mkdir -p release/public && cp -r dist/* release/public"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.3",
