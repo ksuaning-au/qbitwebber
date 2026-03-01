@@ -23,6 +23,18 @@ Download the zip of this repository (or clone it) and then configure qbittorrent
 
 ## Development
 
+During development the Vite dev server proxies API requests under `/api` to the qBittorrent backend.
+
+By default the proxy target is set in `vite.config.ts` at `server.proxy['/api'].target`.
+
+Change that value to the full URL (including protocol and port) where your qBittorrent backend is running. Examples:
+
+- Default local qBittorrent: `http://localhost:8080`
+- Remote machine on LAN: `http://192.168.1.100:8080`
+
+
+To run in dev mode:
+
 ```bash
 npm install
 npm run dev
