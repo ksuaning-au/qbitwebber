@@ -151,22 +151,6 @@ export function SettingsView() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Connection</CardTitle>
-          <CardDescription>Current connection settings</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Username</Label>
-            <Input value={username} disabled />
-          </div>
-          <Button variant="outline" className="w-full" onClick={handleLogout}>
-            Disconnect
-          </Button>
-        </CardContent>
-      </Card>
-
       <Tabs defaultValue="general" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="general">General</TabsTrigger>
