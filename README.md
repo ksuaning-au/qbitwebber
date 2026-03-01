@@ -41,7 +41,11 @@ npm run release
 
 ## Disclamer
  
-To keep this from getting too cluttered it is likely missing things. I may or maynot maintain this. Also you should only ever use this to download linux distros and nothing else.
+To keep this from getting too cluttered it is likely missing things.
+
+I may or maynot maintain this. 
+
+Also you should only ever use this to download linux distros and nothing else.
 
 ## Contributions
 
