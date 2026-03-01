@@ -6,7 +6,13 @@ I built the initial version of this on a weekend because I felt the other option
 
 Built with React, Vite, and TypeScript.
 
+### Desktop Preview
+
 ![Screenshot](docs/screenshots/torrents_desktop.png)
+
+### Mobile Preview
+
+![Screenshot](docs/screenshots/torrents_mobile.png)
 
 ## Features
 
