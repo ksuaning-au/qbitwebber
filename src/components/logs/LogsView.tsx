@@ -8,11 +8,11 @@ function getLogIcon(type: LogType) {
   switch (type) {
     case 'CRITICAL':
     case 'ERROR':
-      return <AlertCircle className="h-4 w-4 text-red-500" />
+      return <AlertCircle className="h-4 w-4" />
     case 'WARNING':
-      return <AlertTriangle className="h-4 w-4 text-yellow-500" />
+      return <AlertTriangle className="h-4 w-4" />
     default:
-      return <Info className="h-4 w-4 text-blue-500" />
+      return <Info className="h-4 w-4" />
   }
 }
 
@@ -42,13 +42,13 @@ export function LogsView() {
             {logs.slice(0, 100).map((log) => (
               <div
                 key={log.id}
-                className="flex items-start gap-2 py-1 text-sm"
+                className="flex items-start gap-2 py-1 text-xs"
               >
                 <span className="text-muted-foreground text-xs whitespace-nowrap">
                   {formatTimestamp(log.timestamp)}
                 </span>
-                {getLogIcon(log.type as LogType)}
-                <span className="break-all">{log.message}</span>
+                {/* {getLogIcon(log.type as LogType)} */}
+                <span className="break-all text-xs">{log.message}</span>
               </div>
             ))}
           </div>
