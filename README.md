@@ -2,13 +2,18 @@
 
 A minimalist, mobile-friendly frontend for qbittorrent web UI.
 
+I built the initial version of this on a weekend because I felt the other options were a bit cluttered.
+
 Built with React, Vite, and TypeScript.
 
 ![Screenshot](docs/screenshots/torrents_desktop.png)
 
 ## Features
 
-- Minimalist torrent management interface
+- Manage Torrents
+- RSS Feed
+- Search
+- Settings (Simplified Compared to Offical Web UI)
 - Mobile-friendly responsive design
 
 ## Development
@@ -33,6 +38,10 @@ npm run demo:build
 npm run release
 ```
 
-## Known Issues
+## Disclamer
 
-This project is still under development and has definitely has bugs and issues. Use at your own risk. Pull requests are welcome!
+I built this on a weekend because I felt the other options were a bit cluttered. It is likely missing things. I may or maynot maintain this.
+
+## Contributions
+
+Please feel free to open issues or submit pull requests. I will look at them when I have the time.
