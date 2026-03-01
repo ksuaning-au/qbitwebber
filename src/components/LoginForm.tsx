@@ -14,7 +14,7 @@ export function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    
+
     try {
       await login(username, password)
     } catch (err) {
@@ -26,7 +26,7 @@ export function LoginForm() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl text-center">qBittorrent</CardTitle>
+          <CardTitle className="text-2xl text-center" style={{ fontFamily: "Silkscreen" }}>qBittorrent</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

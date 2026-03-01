@@ -1,10 +1,10 @@
-import type { 
-  AppConfig, 
-  Torrent, 
-  TorrentFile, 
+import type {
+  AppConfig,
+  Torrent,
+  TorrentFile,
   TorrentTracker,
-  RSSFeed, 
-  RSSItem, 
+  RSSFeed,
+  RSSItem,
   RSSRule,
   SearchResult,
   LogEntry,
@@ -40,7 +40,7 @@ class QBittorrentClient {
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = endpoint
-    
+
     const headers: Record<string, string> = {
       ...(options.headers as Record<string, string>),
     }
@@ -78,9 +78,6 @@ class QBittorrentClient {
 
     const response = await fetch(`/api/v2/auth/login`, {
       method: 'POST',
-      headers: {
-        'Referer': 'http://192.168.15.19:8080',
-      },
       body: formData,
     })
 
@@ -97,8 +94,8 @@ class QBittorrentClient {
   }
 
   async logout(): Promise<void> {
-    await this.request('/api/v2/auth/logout')
     this.sid = null
+    await this.request('/api/v2/auth/logout')
   }
 
   async getAppVersion(): Promise<string> {
@@ -109,6 +106,20 @@ class QBittorrentClient {
     return this.request<AppConfig>('/api/v2/app/config')
   }
 
+  async getPreferences(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/api/v2/app/preferences')
+  }
+
+  async setPreferences(prefs: Record<string, unknown>): Promise<void> {
+    await this.request('/api/v2/app/setPreferences', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(prefs),
+    })
+  }
+
   async getTransferInfo(): Promise<TransferInfo> {
     return this.request<TransferInfo>('/api/v2/transfer/info')
   }
@@ -117,7 +128,7 @@ class QBittorrentClient {
     const params = new URLSearchParams()
     if (filter) params.set('filter', filter)
     if (category) params.set('category', category)
-    
+
     const query = params.toString()
     const url = query ? `/api/v2/torrents/info?${query}` : '/api/v2/torrents/info'
     return this.request<Torrent[]>(url)
