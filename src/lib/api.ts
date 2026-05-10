@@ -122,6 +122,10 @@ class QBittorrentClient {
     })
   }
 
+  async revertToDefaultWebUI(): Promise<void> {
+    await this.setPreferences({ alternative_webui_enabled: false })
+  }
+
   async getTransferInfo(): Promise<TransferInfo> {
     return this.request<TransferInfo>('/api/v2/transfer/info')
   }

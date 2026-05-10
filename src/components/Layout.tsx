@@ -28,7 +28,6 @@ export function Layout({ activeTab, onTabChange, children }: LayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { logout } = useAuth()
   const { data: transferInfo } = useTransferInfo()
-
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'torrents', label: 'Torrents', icon: <Download className="h-5 w-5" /> },
     { id: 'add', label: 'Add', icon: <Server className="h-5 w-5" /> },

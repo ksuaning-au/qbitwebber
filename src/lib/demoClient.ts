@@ -50,6 +50,9 @@ class DemoQBittorrentClient {
   async setPreferences(_prefs: Record<string, unknown>): Promise<void> {
   }
 
+  async revertToDefaultWebUI(): Promise<void> {
+  }
+
   async getTransferInfo(): Promise<TransferInfo> {
     return {
       connection_status: 'connected',

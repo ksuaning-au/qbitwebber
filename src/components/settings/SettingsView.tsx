@@ -1,10 +1,21 @@
 import { useState, useEffect } from 'react'
+import { useTheme } from 'next-themes'
+import { Sun, Moon, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { useAuth } from '@/hooks/useAuth'
 import { qbitClient } from '@/lib/api'
 import { toast } from 'sonner'
@@ -61,9 +72,12 @@ const defaultPreferences: Preferences = {
 
 export function SettingsView() {
   const { logout, username } = useAuth()
+  const { theme, setTheme } = useTheme()
   const [preferences, setPreferences] = useState<Preferences>(defaultPreferences)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [revertDialogOpen, setRevertDialogOpen] = useState(false)
+  const [reverting, setReverting] = useState(false)
 
   useEffect(() => {
     loadPreferences()
@@ -139,6 +153,20 @@ export function SettingsView() {
   const handleLogout = async () => {
     await logout()
     toast('Logged out')
+  }
+
+  const handleRevert = async () => {
+    setReverting(true)
+    try {
+      await qbitClient.revertToDefaultWebUI()
+      setRevertDialogOpen(false)
+      toast.success('Reverted to default Web UI. Reload the page or visit the root URL to access the default interface.')
+    } catch (error) {
+      console.error('Failed to revert to default Web UI:', error)
+      toast.error('Failed to revert to default Web UI')
+    } finally {
+      setReverting(false)
+    }
   }
 
   const updatePreference = <K extends keyof Preferences>(key: K, value: Preferences[K]) => {
@@ -228,6 +256,63 @@ export function SettingsView() {
               <Button onClick={() => handleSave('general')} disabled={saving}>
                 Save General Settings
               </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-3">
+            <CardHeader>
+              <CardTitle>Appearance</CardTitle>
+              <CardDescription>Toggle between light and dark mode</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <Label>Theme</Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                  className="gap-2"
+                >
+                  {theme === 'dark' ? (
+                    <><Moon className="h-4 w-4" /><span>Dark</span></>
+                  ) : (
+                    <><Sun className="h-4 w-4" /><span>Light</span></>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-3">
+            <CardHeader>
+              <CardTitle>Default Web UI</CardTitle>
+              <CardDescription>Disable qbitwebber and revert to qBittorrent's built-in Web UI</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Dialog open={revertDialogOpen} onOpenChange={setRevertDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="destructive" size="sm" className="gap-2">
+                    <AlertCircle className="h-4 w-4" />
+                    Revert to Default Web UI
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Revert to Default Web UI?</DialogTitle>
+                    <DialogDescription>
+                      This will disable qbitwebber. You will need to re-enable the alternative Web UI in qBittorrent's settings to use qbitwebber again.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setRevertDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button variant="destructive" onClick={handleRevert} disabled={reverting}>
+                      {reverting ? 'Reverting...' : 'Confirm'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
         </TabsContent>
