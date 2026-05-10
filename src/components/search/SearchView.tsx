@@ -269,7 +269,7 @@ export function SearchView() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[300px]">
+                        <TableHead className="flex-1">
                           <button onClick={() => handleSort('fileName')} className="flex items-center hover:text-foreground">
                             Name <SortIcon field="fileName" />
                           </button>
