@@ -8,7 +8,6 @@ Built with React, Vite, and TypeScript.
 
 <img src="docs/screenshots/torrents_desktop.png" alt="Desktop Preview">
 
-
 ## Features
 
 - Manage Torrents
@@ -16,6 +15,7 @@ Built with React, Vite, and TypeScript.
 - Search
 - Settings (Simplified Compared to Offical Web UI)
 - Mobile-friendly responsive design
+- Light & Dark Mode
 
 ## Installation
 
