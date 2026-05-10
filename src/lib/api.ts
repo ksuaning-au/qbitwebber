@@ -113,12 +113,11 @@ class QBittorrentClient {
   }
 
   async setPreferences(prefs: Record<string, unknown>): Promise<void> {
+    const body = new URLSearchParams()
+    body.append('json', JSON.stringify(prefs))
     await this.request('/api/v2/app/setPreferences', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(prefs),
+      body,
     })
   }
 

@@ -291,8 +291,7 @@ export function SettingsView() {
             <CardContent>
               <Dialog open={revertDialogOpen} onOpenChange={setRevertDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="destructive" size="sm" className="gap-2">
-                    <AlertCircle className="h-4 w-4" />
+                  <Button variant="destructive" size="default" className="gap-2">
                     Revert to Default Web UI
                   </Button>
                 </DialogTrigger>

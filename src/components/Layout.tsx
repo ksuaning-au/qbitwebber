@@ -110,7 +110,7 @@ export function Layout({ activeTab, onTabChange, children }: LayoutProps) {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 p-4">
+        <main className="flex-1 p-4 pb-16 md:pb-4">
           {children}
         </main>
       </div>
