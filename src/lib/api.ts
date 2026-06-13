@@ -202,7 +202,7 @@ class QBittorrentClient {
     const formData = new URLSearchParams()
     formData.append('hashes', hashes.join('|'))
 
-    await this.request('/api/v2/torrents/pause', {
+    await this.request('/api/v2/torrents/stop', {
       method: 'POST',
       body: formData,
     })
@@ -212,7 +212,7 @@ class QBittorrentClient {
     const formData = new URLSearchParams()
     formData.append('hashes', hashes.join('|'))
 
-    await this.request('/api/v2/torrents/resume', {
+    await this.request('/api/v2/torrents/start', {
       method: 'POST',
       body: formData,
     })

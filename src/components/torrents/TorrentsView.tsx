@@ -52,23 +52,29 @@ function formatTime(seconds: number): string {
   return `${Math.floor(seconds / 86400)}d`
 }
 
+function isStoppedState(state: string): boolean {
+  return state.startsWith('paused') || state.startsWith('stopped')
+}
+
 function getStateColor(state: string, completedOn: number): string {
-  if ((state === 'pausedDL' || state === 'pausedUP') && completedOn > 0) return 'text-green-500'
+  if (isStoppedState(state) && completedOn > 0) return 'text-green-500'
   if (state === 'downloading' || state === 'forcedDL' || state === 'metaDL') return 'text-blue-500'
   if (state === 'uploading' || state === 'forcedUP' || state === 'checkingUP' || state === 'completed' || state === 'seeding') return 'text-green-500'
-  if (state === 'pausedDL' || state === 'pausedUP') return 'text-yellow-500'
+  if (isStoppedState(state)) return 'text-yellow-500'
   if (state === 'error') return 'text-red-500'
   return 'text-muted-foreground'
 }
 
 function getStateLabel(state: string, completedOn: number): string {
-  if ((state === 'pausedDL' || state === 'pausedUP') && completedOn > 0) {
+  if (isStoppedState(state) && completedOn > 0) {
     return 'Completed'
   }
   const labels: Record<string, string> = {
     downloading: 'Downloading',
     pausedDL: 'Paused',
     pausedUP: 'Paused',
+    stoppedDL: 'Stopped',
+    stoppedUP: 'Stopped',
     uploading: 'Seeding',
     completed: 'Completed',
     seeding: 'Seeding',
@@ -348,7 +354,7 @@ export function TorrentsView() {
                 </TableHeader>
                 <TableBody>
                   {paginatedTorrents.map((torrent) => {
-                    const isActive = !torrent.state.startsWith('paused')
+                    const isActive = !isStoppedState(torrent.state)
                     return (
                       <TableRow key={torrent.hash} className={selected.has(torrent.hash) ? 'bg-muted' : ''}>
                         <TableCell>
@@ -426,7 +432,7 @@ export function TorrentsView() {
       {/* Mobile Cards */}
       <div className="md:hidden space-y-2">
         {paginatedTorrents.map((torrent) => {
-          const isActive = !torrent.state.startsWith('paused')
+          const isActive = !isStoppedState(torrent.state)
           const isExpanded = expandedCard === torrent.hash
           return (
             <Card key={torrent.hash} className={(selected.has(torrent.hash) ? 'border-primary' : '') + " py-3"}>
