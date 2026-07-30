@@ -63,6 +63,13 @@ export interface Torrent {
   upspeed_avg: number
 }
 
+export type ColumnsConfig = Partial<Record<keyof Torrent, ColumnConfigDetail>>
+
+export type ColumnConfigDetail = {
+  active: boolean
+  order: number
+}
+
 export type TorrentState = 
   | 'error'
   | 'missingFiles'

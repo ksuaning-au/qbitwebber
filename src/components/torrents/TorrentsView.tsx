@@ -34,7 +34,7 @@ import {
 } from '@/components/ui/table'
 import { TorrentFilesDialog } from './TorrentFilesDialog'
 import { useTorrents, usePauseTorrents, useResumeTorrents, useDeleteTorrents } from '@/hooks/useApi'
-import type { Torrent } from '@/types'
+import type { ColumnsConfig, Torrent } from '@/types'
 
 function formatSize(bytes: number): string {
   if (bytes === 0) return '0 B'
@@ -143,6 +143,9 @@ export function TorrentsView() {
   const [currentPage, setCurrentPage] = useState(1)
   const [filesDialogTorrent, setFilesDialogTorrent] = useState<Torrent | null>(null)
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
+  const [tableSettings] = useState<ColumnsConfig>(() => 
+    JSON.parse(localStorage.getItem('qbitwebber_tableViewSettings') || '{}')
+  );
 
   const sortedTorrents = useMemo(() => {
     if (!torrents) return []
@@ -227,6 +230,41 @@ export function TorrentsView() {
     setSelected(new Set())
   }
 
+  const orderedFields = Object.keys(tableSettings).sort((a, b) => {
+    const orderA = tableSettings[a as keyof ColumnsConfig]?.order ?? 0
+    const orderB = tableSettings[b as keyof ColumnsConfig]?.order ?? 0
+    return orderA - orderB
+  })
+
+
+  const cellRenderers: Record<string, (torrent: Torrent) => React.ReactNode> = {
+    name: (torrent) => <span className="text-xs truncate max-w-[300px]">{torrent.name}</span>,
+    state: (torrent) => <span className={`text-xs ${getStateColor(torrent.state, torrent.completion_on)}`}>{getStateLabel(torrent.state, torrent.completion_on)}</span>,
+    progress: (torrent) => (
+      <div className="flex items-center gap-2">
+        <div className="w-16 h-1.5 bg-secondary rounded-full overflow-hidden">
+          <div className="h-full bg-primary" style={{ width: `${torrent.progress * 100}%` }} />
+        </div>
+        <span className="text-xs">{Math.round(torrent.progress * 100)}%</span>
+      </div>
+    ),
+    size: (torrent) => <span className="text-sm">{formatSize(torrent.size)}</span>,
+    dlspeed: (torrent) => (
+      <div className="flex items-center gap-1">
+        <Download className="h-3 w-3 text-blue-500" />
+        {formatSize(torrent.dlspeed)}/s
+      </div>
+    ),
+    upspeed: (torrent) => (
+      <div className="flex items-center gap-1">
+        <Upload className="h-3 w-3 text-green-500" />
+        {formatSize(torrent.upspeed)}/s
+      </div>
+    ),
+    eta: (torrent) => <span className="text-sm">{formatTime(torrent.eta)}</span>,
+    ratio: (torrent) => <span className="text-sm">{torrent.ratio.toFixed(2)}</span>,
+  }
+
   if (isLoading) {
     return <div className="text-center py-8 text-muted-foreground">Loading torrents...</div>
   }
@@ -234,7 +272,6 @@ export function TorrentsView() {
   if (!torrents || torrents.length === 0) {
     return <div className="text-center py-8 text-muted-foreground">No torrents</div>
   }
-
   return (
     <div className="space-y-4">
       {selected.size > 0 && (
@@ -309,46 +346,18 @@ export function TorrentsView() {
                         onCheckedChange={handleSelectAll}
                       />
                     </TableHead>
-                    <TableHead>
-                      <SortButton field="name" currentField={sortField} direction={sortDirection} onClick={() => handleSort('name')}>
-                        Name
-                      </SortButton>
-                    </TableHead>
-                    <TableHead className="w-[100px]">
-                      <SortButton field="state" currentField={sortField} direction={sortDirection} onClick={() => handleSort('state')}>
-                        Status
-                      </SortButton>
-                    </TableHead>
-                    <TableHead className="w-[120px]">
-                      <SortButton field="progress" currentField={sortField} direction={sortDirection} onClick={() => handleSort('progress')}>
-                        Progress
-                      </SortButton>
-                    </TableHead>
-                    <TableHead className="w-[80px]">
-                      <SortButton field="size" currentField={sortField} direction={sortDirection} onClick={() => handleSort('size')}>
-                        Size
-                      </SortButton>
-                    </TableHead>
-                    <TableHead className="w-[80px]">
-                      <SortButton field="dlspeed" currentField={sortField} direction={sortDirection} onClick={() => handleSort('dlspeed')}>
-                        Download
-                      </SortButton>
-                    </TableHead>
-                    <TableHead className="w-[80px]">
-                      <SortButton field="upspeed" currentField={sortField} direction={sortDirection} onClick={() => handleSort('upspeed')}>
-                        Upload
-                      </SortButton>
-                    </TableHead>
-                    <TableHead className="w-[60px]">
-                      <SortButton field="eta" currentField={sortField} direction={sortDirection} onClick={() => handleSort('eta')}>
-                        ETA
-                      </SortButton>
-                    </TableHead>
-                    <TableHead className="w-[60px]">
-                      <SortButton field="ratio" currentField={sortField} direction={sortDirection} onClick={() => handleSort('ratio')}>
-                        Ratio
-                      </SortButton>
-                    </TableHead>
+                    {
+                       orderedFields.map((field) => {
+                        if (!tableSettings[field as keyof ColumnsConfig]?.active) return null
+                        return (
+                          <TableHead key={field} className={`w-[${field === 'name' ? '300px' : '80px'}]`}>
+                            <SortButton field={field as SortField} currentField={sortField} direction={sortDirection} onClick={() => handleSort(field as SortField)}>
+                              {sortLabels[field as SortField]}
+                            </SortButton>
+                          </TableHead>
+                        )
+                      })
+                    }
                     <TableHead className="w-[80px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -363,37 +372,15 @@ export function TorrentsView() {
                             onCheckedChange={(checked) => handleSelect(torrent.hash, !!checked)}
                           />
                         </TableCell>
-                        <TableCell className="text-xs truncate max-w-[300px]">
-                          {torrent.name}
-                        </TableCell>
-                        <TableCell>
-                          <span className={`text-xs ${getStateColor(torrent.state, torrent.completion_on)}`}>
-                            {getStateLabel(torrent.state, torrent.completion_on)}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="w-16 h-1.5 bg-secondary rounded-full overflow-hidden">
-                              <div className="h-full bg-primary" style={{ width: `${torrent.progress * 100}%` }} />
-                            </div>
-                            <span className="text-xs">{Math.round(torrent.progress * 100)}%</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm">{formatSize(torrent.size)}</TableCell>
-                        <TableCell className="text-sm">
-                          <div className="flex items-center gap-1">
-                            <Download className="h-3 w-3 text-blue-500" />
-                            {formatSize(torrent.dlspeed)}/s
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          <div className="flex items-center gap-1">
-                            <Upload className="h-3 w-3 text-green-500" />
-                            {formatSize(torrent.upspeed)}/s
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm">{formatTime(torrent.eta)}</TableCell>
-                        <TableCell className="text-sm">{torrent.ratio.toFixed(2)}</TableCell>
+                        {orderedFields.map((field) => {
+                          if (!tableSettings[field as keyof ColumnsConfig]?.active) return null
+                          return (
+                            <TableCell key={field}>
+                              {cellRenderers[field](torrent)}
+                            </TableCell>
+                          )
+                        })}
+
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Button variant="ghost" size="icon" className="h-8 w-8 mr-2" onClick={() => isActive ? pauseMutation.mutate([torrent.hash]) : resumeMutation.mutate([torrent.hash])}>
