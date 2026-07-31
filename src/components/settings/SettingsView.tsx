@@ -16,139 +16,27 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { useAuth } from '@/hooks/useAuth'
 import { qbitClient } from '@/lib/api'
 import { toast } from 'sonner'
-import { ColumnsConfig } from '@/types'
+import { Columns, Preferences } from '@/types'
+import { columnsDictionary, defaultPreferences } from "@/constants";
+import { getStoredTableSettings } from "@/components/helpers";
 
-interface Preferences {
-  columns: ColumnsConfig
-  locale: string
-  save_path: string
-  temp_path: string
-  temp_path_enabled: boolean
-  create_subfolder_enabled: boolean
-  start_paused_enabled: boolean
-  auto_tmm_enabled: boolean
-  queueing_enabled: boolean
-  max_active_downloads: number
-  max_active_torrents: number
-  max_active_uploads: number
-  dl_limit: number
-  up_limit: number
-  alt_dl_limit: number
-  alt_up_limit: number
-  listen_port: number
-  upnp: boolean
-  random_port: boolean
-  dht: boolean
-  pex: boolean
-  lsd: boolean
-  encryption: number
-}
 
-const defaultPreferences: Preferences = {
-  locale: 'en',
-  save_path: '',
-  temp_path: '',
-  temp_path_enabled: false,
-  create_subfolder_enabled: true,
-  start_paused_enabled: false,
-  auto_tmm_enabled: false,
-  queueing_enabled: false,
-  max_active_downloads: 3,
-  max_active_torrents: 5,
-  max_active_uploads: 3,
-  dl_limit: 0,
-  up_limit: 0,
-  alt_dl_limit: 1024,
-  alt_up_limit: 1024,
-  listen_port: 6881,
-  upnp: true,
-  random_port: false,
-  dht: true,
-  pex: true,
-  lsd: true,
-  encryption: 0,
-  columns: {
-    name: {
-      active: true,
-      order: 1,
-    },
-    state: {
-      active: true,
-      order: 2,
-    },
-    progress: {
-      active: true,
-      order: 3,
-    },
-    dlspeed: {
-      active: true,
-      order: 4,
-    },
-    upspeed: {
-      active: true,
-      order: 5,
-    },
-    ratio: {
-      active: true,
-      order: 6,
-    },
-    num_seeds: {
-      active: false,
-      order: 7,
-    },
-    num_leechs: {
-      active: false,
-      order: 8,
-    },
-    size: {
-      active: false,
-      order: 9,
-    },
-  },
-}
-
-const columnDictionary: Record<string, string> = {
-  name: 'Name',
-  state: 'State',
-  progress: 'Progress',
-  dlspeed: 'Download Speed',
-  upspeed: 'Upload Speed',
-  ratio: 'Ratio',
-}
-  
 export function SettingsView() {
-  const { logout, username } = useAuth()
-  const { theme, setTheme } = useTheme()
-  const [preferences, setPreferences] = useState<Preferences>(defaultPreferences)
+  const { theme, setTheme } = useTheme();
+  const [preferences, setPreferences] = useState(defaultPreferences)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [revertDialogOpen, setRevertDialogOpen] = useState(false)
   const [reverting, setReverting] = useState(false)
-  const [draggedColumn, setDraggedColumn] = useState<string | null>(null)
+  const [draggedColumn, setDraggedColumn] = useState<keyof typeof defaultPreferences.columns | null>(null)
   const dragOverRef = useRef<string | null>(null)
 
   useEffect(() => {
     loadPreferences()
   }, [])
 
-  const getStoredTableSettings = (): ColumnsConfig | null => {
-    const storedSettings = localStorage.getItem('qbitwebber_tableViewSettings')
-    if (storedSettings) {
-      try {
-        const parsedSettings = JSON.parse(storedSettings) as ColumnsConfig
-        return parsedSettings
-      }
-      catch (error) {
-        console.error('Failed to parse stored table settings:', error)
-        localStorage.removeItem('qbitwebber_tableViewSettings') // Remove corrupted data
-        return defaultPreferences.columns
-      }
-    }
-    return defaultPreferences.columns
-  }
 
   const loadPreferences = async () => {
     try {
@@ -231,10 +119,6 @@ export function SettingsView() {
     }
   }
 
-  const handleLogout = async () => {
-    await logout()
-    toast('Logged out')
-  }
 
   const handleRevert = async () => {
     setReverting(true)
@@ -250,12 +134,12 @@ export function SettingsView() {
     }
   }
 
-  const handleDragStart = (columnId: string) => {
+  const handleDragStart = (columnId: keyof typeof defaultPreferences.columns) => {
     setDraggedColumn(columnId)
   }
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, targetColumn: string) => {
-    e.preventDefault()    
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, targetColumn: keyof typeof defaultPreferences.columns) => {
+    e.preventDefault()
     if (!draggedColumn || draggedColumn === targetColumn) {
       dragOverRef.current = null
       return
@@ -264,16 +148,16 @@ export function SettingsView() {
     dragOverRef.current = targetColumn
 
     // Swap dynamically during drag
-    const draggedOrder = preferences.columns[draggedColumn as keyof Preferences['columns']]!.order
-    const targetOrder = preferences.columns[targetColumn as keyof Preferences['columns']]!.order
+    const draggedOrder = preferences.columns[draggedColumn as keyof typeof defaultPreferences.columns]!.order
+    const targetOrder = preferences.columns[targetColumn]!.order
 
     const newColumns = { ...preferences.columns }
-    newColumns[draggedColumn as keyof Preferences['columns']] = {
-      ...newColumns[draggedColumn as keyof Preferences['columns']]!,
+    newColumns[draggedColumn] = {
+      ...newColumns[draggedColumn]!,
       order: targetOrder
     }
-    newColumns[targetColumn as keyof Preferences['columns']] = {
-      ...newColumns[targetColumn as keyof Preferences['columns']]!,
+    newColumns[targetColumn] = {
+      ...newColumns[targetColumn!],
       order: draggedOrder
     }
 
@@ -302,10 +186,10 @@ export function SettingsView() {
     const orderedColumns = useMemo(() => Object.entries(preferences.columns)
     .sort(([, a], [, b]) => a.order - b.order)
     .reduce((acc, [key, value]) => {
-      acc[key as keyof Preferences['columns']] = value
+      acc[key as keyof typeof preferences.columns] = value
       return acc
-    }, {} as Preferences['columns'])
-  , [preferences.columns]);
+    }, {} as typeof preferences.columns)
+  , [preferences]);
 
   if (loading) {
     return <div className="p-4">Loading preferences...</div>
@@ -407,14 +291,14 @@ export function SettingsView() {
                     <div
                       key={column}
                       draggable
-                      onDragStart={() => handleDragStart(column)}
-                      onDragOver={(e) => handleDragOver(e, column)}
+                      onDragStart={() => handleDragStart(column as keyof typeof defaultPreferences.columns)}
+                      onDragOver={(e) => handleDragOver(e, column as keyof typeof defaultPreferences.columns)}
                       onDragLeave={handleDragLeave}
                       onDrop={handleDrop}
                       onDragEnd={handleDragEnd}
                       className={`flex items-center space-x-3 p-3 pl-0 rounded-md transition-all ${
-                        draggedColumn === column 
-                          ? 'border border-primary bg-primary/10 opacity-70' 
+                        draggedColumn === column
+                          ? 'border border-primary bg-primary/10 opacity-70'
                           : 'border border-transparent hover:bg-muted/20'
                       } cursor-move`}
                     >
@@ -428,7 +312,7 @@ export function SettingsView() {
                         })}
                       />
                       <Label htmlFor={column} className="flex-1 cursor-pointer">
-                        {columnDictionary[column] || column}
+                        {columnsDictionary[column as Columns] || column}
                       </Label>
                     </div>
                   ))}

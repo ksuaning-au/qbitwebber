@@ -1,3 +1,5 @@
+import { defaultPreferences } from "@/constants";
+
 export interface AppConfig {
   webuiPort: number
   webuiPortForwarded: boolean
@@ -20,6 +22,7 @@ export interface Torrent {
   dl_limit: number
   dlspeed: number
   dl_speed_avg: number
+    downloaded: number
   download_path: string
   eta: number
   f_l_piece_prio: boolean
@@ -63,7 +66,7 @@ export interface Torrent {
   upspeed_avg: number
 }
 
-export type ColumnsConfig = Partial<Record<keyof Torrent, ColumnConfigDetail>>
+export type ColumnsConfig = Record<Columns, ColumnConfigDetail>
 
 export type ColumnConfigDetail = {
   active: boolean
@@ -81,7 +84,6 @@ export type TorrentState =
   | 'checkingUP'
   | 'forcedUP'
   | 'downloading'
-  | 'missingFiles'
   | 'pausedDL'
   | 'stoppedDL'
   | 'queuedDL'
@@ -181,3 +183,31 @@ export interface TransferInfo {
   up_info_speed: number
   up_rate_limit: number
 }
+
+export interface Preferences {
+    columns: ColumnsConfig
+    locale: string
+    save_path: string
+    temp_path: string
+    temp_path_enabled: boolean
+    create_subfolder_enabled: boolean
+    start_paused_enabled: boolean
+    auto_tmm_enabled: boolean
+    queueing_enabled: boolean
+    max_active_downloads: number
+    max_active_torrents: number
+    max_active_uploads: number
+    dl_limit: number
+    up_limit: number
+    alt_dl_limit: number
+    alt_up_limit: number
+    listen_port: number
+    upnp: boolean
+    random_port: boolean
+    dht: boolean
+    pex: boolean
+    lsd: boolean
+    encryption: number
+}
+
+export type Columns = keyof typeof defaultPreferences.columns;
