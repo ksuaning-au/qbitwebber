@@ -263,7 +263,9 @@ export function TorrentsView() {
     ),
     eta: (torrent) => <span className="text-sm">{formatTime(torrent.eta)}</span>,
     ratio: (torrent) => <span className="text-sm">{torrent.ratio.toFixed(2)}</span>,
-  }
+    num_seeds: (torrent) => <span className="text-sm">{torrent.num_seeds + "(" + torrent.num_complete + ")"}</span>,
+    num_leechs: (torrent) => <span className="text-sm">{torrent.num_leechs + "(" + torrent.num_incomplete + ")"}</span>,
+  } 
 
   if (isLoading) {
     return <div className="text-center py-8 text-muted-foreground">Loading torrents...</div>

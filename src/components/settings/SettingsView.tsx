@@ -95,7 +95,19 @@ const defaultPreferences: Preferences = {
       active: true,
       order: 6,
     },
-  }
+    num_seeds: {
+      active: false,
+      order: 7,
+    },
+    num_leechs: {
+      active: false,
+      order: 8,
+    },
+    size: {
+      active: false,
+      order: 9,
+    },
+  },
 }
 
 const columnDictionary: Record<string, string> = {
