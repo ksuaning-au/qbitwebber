@@ -13,7 +13,8 @@ class DemoQBittorrentClient {
   private isLoggedIn = false
   private username = ''
 
-  setCredentials(username: string, password: string) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    setCredentials(username: string, _password: string) {
     this.username = username
     localStorage.setItem('qbit_user', username)
   }
@@ -39,6 +40,7 @@ class DemoQBittorrentClient {
     return 'v5.0.1'
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async getAppConfig(): Promise<{ webuiPort: number; locale: string }> {
     return { webuiPort: 8080, locale: 'en' }
   }
@@ -47,6 +49,7 @@ class DemoQBittorrentClient {
     return { locale: 'en' }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async setPreferences(_prefs: Record<string, unknown>): Promise<void> {
   }
 
@@ -66,62 +69,64 @@ class DemoQBittorrentClient {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async getTorrents(_filter?: string, _category?: string): Promise<Torrent[]> {
     const now = Math.floor(Date.now() / 1000)
     return [
-      {
-        added_on: now - 86400 * 3,
-        amount_left: 0,
-        auto_tmm: true,
-        category: 'Movies',
-        completed: 100,
-        completion_on: now - 86400,
-        content_path: '/downloads/ubuntu-24.04-desktop-amd64.iso',
-        dl_limit: 0,
-        dlspeed: 0,
-        dl_speed_avg: 5_000_000,
-        download_path: '',
-        eta: 0,
-        f_l_piece_prio: false,
-        force_start: false,
-        hash: 'abc123def456789',
-        inactive_seeding_time_limit: -1,
-        index: 0,
-        last_activity: now - 3600,
-        magnet_uri: 'magnet:?xt=urn:btih:abc123def456789',
-        max_inactive_seeding_time: -1,
-        max_ratio: 1.0,
-        max_seeding_time: -1,
-        name: 'ubuntu-24.04-desktop-amd64.iso',
-        num_complete: 150,
-        num_incomplete: 10,
-        num_leechs: 5,
-        num_seeds: 150,
-        priority: 1,
-        progress: 1,
-        ratio: 1.05,
-        ratio_limit: 1.0,
-        save_path: '/downloads',
-        seeding_time: 86400,
-        seeding_time_limit: -1,
-        seen_complete: 1,
-        size: 5_500_000_000,
-        state: 'uploading',
-        state_enum: 'uploading',
-        tags: '',
-        time_active: 172800,
-        total_downloaded: 5_500_000_000,
-        total_uploaded: 5_775_000_000,
-        total_size: 5_500_000_000,
-        tracker: 'https://ubuntu.com/bt',
-        trackers_count: 1,
-        up_limit: 0,
-        upspeed: 567_890,
-        up_speed_avg: 560_000,
-        uploaded: 5_775_000_000,
-        uploaded_session: 567_890,
-        upspeed_avg: 560_000,
-      },
+        {
+            added_on: now - 86400 * 3,
+            amount_left: 0,
+            auto_tmm: true,
+            category: 'Movies',
+            completed: 100,
+            completion_on: now - 86400,
+            content_path: '/downloads/ubuntu-24.04-desktop-amd64.iso',
+            dl_limit: 0,
+            dlspeed: 0,
+            dl_speed_avg: 5000000,
+            download_path: '',
+            eta: 0,
+            f_l_piece_prio: false,
+            force_start: false,
+            hash: 'abc123def456789',
+            inactive_seeding_time_limit: -1,
+            index: 0,
+            last_activity: now - 3600,
+            magnet_uri: 'magnet:?xt=urn:btih:abc123def456789',
+            max_inactive_seeding_time: -1,
+            max_ratio: 1.0,
+            max_seeding_time: -1,
+            name: 'ubuntu-24.04-desktop-amd64.iso',
+            num_complete: 150,
+            num_incomplete: 10,
+            num_leechs: 5,
+            num_seeds: 150,
+            priority: 1,
+            progress: 1,
+            ratio: 1.05,
+            ratio_limit: 1.0,
+            save_path: '/downloads',
+            seeding_time: 86400,
+            seeding_time_limit: -1,
+            seen_complete: 1,
+            size: 5500000000,
+            state: 'uploading',
+            state_enum: 'uploading',
+            tags: '',
+            time_active: 172800,
+            total_downloaded: 5500000000,
+            total_uploaded: 5775000000,
+            total_size: 5500000000,
+            tracker: 'https://ubuntu.com/bt',
+            trackers_count: 1,
+            up_limit: 0,
+            upspeed: 567890,
+            up_speed_avg: 560000,
+            uploaded: 5775000000,
+            uploaded_session: 567890,
+            upspeed_avg: 560000,
+            downloaded: 0
+        },
       {
         added_on: now - 86400,
         amount_left: 2_500_000_000,
@@ -174,6 +179,7 @@ class DemoQBittorrentClient {
         uploaded: 250_000_000,
         uploaded_session: 250_000_000,
         upspeed_avg: 200_000,
+        downloaded: 2_500_000_000,
       },
       {
         added_on: now - 86400 * 7,
@@ -227,6 +233,7 @@ class DemoQBittorrentClient {
         uploaded: 175_000_000,
         uploaded_session: 0,
         upspeed_avg: 50_000,
+        downloaded: 350_000_000,
       },
       {
         added_on: now - 86400 * 2,
@@ -280,6 +287,7 @@ class DemoQBittorrentClient {
         uploaded: 0,
         uploaded_session: 0,
         upspeed_avg: 0,
+        downloaded: 200_000_000,
       },
       {
         added_on: now - 86400 * 5,
@@ -333,15 +341,18 @@ class DemoQBittorrentClient {
         uploaded: 425_000_000,
         uploaded_session: 0,
         upspeed_avg: 100_000,
+        downloaded: 850_000_000,
       },
     ]
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async getTorrentProperties(_hash: string): Promise<Torrent> {
     const torrents = await this.getTorrents()
     return torrents[0]
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async getTorrentFiles(_hash: string): Promise<TorrentFile[]> {
     return [
       { index: 0, name: 'video.mp4', size: 5_000_000_000, progress: 1, priority: 7, is_seed: true, piece_range: [0, 5000] },
@@ -351,9 +362,11 @@ class DemoQBittorrentClient {
     ]
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async setFilePriority(_hash: string, _id: string, _priority: number): Promise<void> {
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async getTorrentTrackers(_hash: string): Promise<TorrentTracker[]> {
     return [
       { url: 'https://example.com/tracker', status: 2, tier: 0, num_peers: 50, num_seeds: 100, num_leechers: 25, num_downloaded: 1000, last_error: '', msg: 'OK' },
@@ -361,18 +374,23 @@ class DemoQBittorrentClient {
     ]
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async addTorrentUrl(_url: string, _options?: { savePath?: string; category?: string }): Promise<void> {
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async addTorrentFile(_file: File, _options?: { savePath?: string; category?: string }): Promise<void> {
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async deleteTorrents(_hashes: string[], _deleteFiles: boolean = false): Promise<void> {
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async pauseTorrents(_hashes: string[]): Promise<void> {
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async resumeTorrents(_hashes: string[]): Promise<void> {
   }
 
@@ -382,27 +400,58 @@ class DemoQBittorrentClient {
         { uid: 'feed1', url: 'https://example.com/rss/movies', title: 'Movie Releases', unreadCount: 3, hasError: false },
         { uid: 'feed2', url: 'https://example.com/rss/tv', title: 'TV Shows', unreadCount: 5, hasError: false },
         { uid: 'feed3', url: 'https://example.com/rss/software', title: 'Software Updates', unreadCount: 1, hasError: false },
-      ],
+      ]
     }
   }
-
+  
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async getRSSItems(_feedUid: string): Promise<{ articles: RSSItem[] }> {
-    return {
-      articles: [
-        { id: '1', feedUID: 'feed1', title: 'Dune Part Two 2024 1080p', url: 'https://example.com/movie1', author: 'anon', date: '2024-01-15', description: 'Some movie description', isRead: false },
-        { id: '2', feedUID: 'feed1', title: 'Oppenheimer 2023 2160p', url: 'https://example.com/movie2', author: 'anon', date: '2024-01-14', description: 'Another movie', isRead: false },
-        { id: '3', feedUID: 'feed1', title: 'Past Lives 2023 720p', url: 'https://example.com/movie3', author: 'anon', date: '2024-01-13', description: 'Indie film', isRead: true },
-      ],
-    }
+      return {
+          articles: [
+              {
+                  id: '1',
+                  feedUID: 'feed1',
+                  title: 'Dune Part Two 2024 1080p',
+                  url: 'https://example.com/movie1',
+                  author: 'anon',
+                  date: '2024-01-15',
+                  description: 'Some movie description',
+                  isRead: false
+              },
+              {
+                  id: '2',
+                  feedUID: 'feed1',
+                  title: 'Oppenheimer 2023 2160p',
+                  url: 'https://example.com/movie2',
+                  author: 'anon',
+                  date: '2024-01-14',
+                  description: 'Another movie',
+                  isRead: false
+              },
+              {
+                  id: '3',
+                  feedUID: 'feed1',
+                  title: 'Past Lives 2023 720p',
+                  url: 'https://example.com/movie3',
+                  author: 'anon',
+                  date: '2024-01-13',
+                  description: 'Indie film',
+                  isRead: true
+              },
+          ]
+      }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async addRSSFeed(_url: string): Promise<void> {
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async removeRSSFeed(_uid: string): Promise<void> {
   }
 
-  async markAsRead(_uid: string, _articleId?: string): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async markAsRead(_uid: string, _articleId?: string): Promise<void> {
   }
 
   async getRSSRules(): Promise<{ rules: never[] }> {
@@ -418,15 +467,18 @@ class DemoQBittorrentClient {
       ],
     }
   }
-
+  
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async startSearch(_pattern: string): Promise<{ id: number }> {
     return { id: 12345 }
   }
 
-  async stopSearch(_id: number): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async stopSearch(_id: number): Promise<void> {
   }
 
-  async getSearchResults(_id: number): Promise<{ results: SearchResult[]; status: string }> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async getSearchResults(_id: number): Promise<{ results: SearchResult[]; status: string }> {
     return {
       results: [
         { descrLink: 'https://example.com/1', fileName: 'ubuntu-24.04-desktop-amd64.iso', fileSize: 5_500_000_000, fileUrl: 'magnet:1', nbLeechers: 100, nbSeeders: 500, siteUrl: 'https://example.com' },
@@ -436,7 +488,8 @@ class DemoQBittorrentClient {
     }
   }
 
-  async getLogs(_normal: boolean = true, _lastId: number = -1): Promise<LogEntry[]> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async getLogs(_normal: boolean = true, _lastId: number = -1): Promise<LogEntry[]> {
     const now = Math.floor(Date.now() / 1000)
     return [
       { id: 1, timestamp: now - 60, type: 'INFO', message: 'qBittorrent v5.0.1 started' },
