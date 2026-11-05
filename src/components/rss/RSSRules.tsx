@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -73,20 +73,21 @@ export function RSSRules() {
   }
 
   return (
-    <section className="space-y-2">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Download rules</h2>
+    <Card className="gap-2">
+      <CardHeader className="flex items-center justify-between">
+        <CardTitle>Download rules</CardTitle>
         <Button size="sm" variant="outline" aria-label="Add rule" title="Add rule" onClick={() => open({ name: '', isNew: true, rule: EMPTY_RULE })}>
           <Plus className="h-4 w-4" />
         </Button>
-      </div>
+      </CardHeader>
 
+      <CardContent>
       {Object.keys(rules ?? {}).length === 0 ? (
         <p className="text-sm text-muted-foreground">No rules configured</p>
       ) : (
-        Object.entries(rules ?? {}).map(([name, rule]) => (
-          <Card key={name} className="py-0">
-            <CardContent className="flex items-center gap-2 p-3">
+        <ul className="divide-y">
+        {Object.entries(rules ?? {}).map(([name, rule]) => (
+          <li key={name} className="flex items-center gap-2 py-2">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{name}</p>
                 <p className="truncate text-xs text-muted-foreground">
@@ -109,9 +110,9 @@ export function RSSRules() {
               <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Delete ${name}`} title="Delete" onClick={() => { setRemoving(name); setRemoveOpen(true) }}>
                 <Trash2 className="h-4 w-4" />
               </Button>
-            </CardContent>
-          </Card>
-        ))
+          </li>
+        ))}
+        </ul>
       )}
 
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
@@ -193,6 +194,7 @@ export function RSSRules() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </section>
+      </CardContent>
+    </Card>
   )
 }

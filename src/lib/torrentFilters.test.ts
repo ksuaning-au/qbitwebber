@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterTorrents, parseTags, type TorrentFilters } from './torrentFilters'
+import { filterTorrents, parseTags, type TorrentFilters, getTrackerHost, groupTrackersByHost, matchesTracker, TRACKERLESS } from './torrentFilters'
 import type { Torrent } from '@/types'
 
 const torrent = (over: Partial<Torrent>) => ({ name: 'Ubuntu', state: 'downloading', progress: 0.5, dlspeed: 0, upspeed: 0, category: '', tags: '', ...over }) as Torrent
@@ -31,4 +31,29 @@ describe('filterTorrents', () => {
 describe('parseTags', () => {
   it('splits and trims', () => expect(parseTags('a, b ,,c')).toEqual(['a', 'b', 'c']))
   it('handles missing tags', () => expect(parseTags(undefined)).toEqual([]))
+})
+
+describe('tracker filter', () => {
+  const hosts = groupTrackersByHost({
+    'udp://tracker.a.test:80/announce': ['h1'],
+    'https://tracker.a.test/announce': ['h2'],
+    'udp://b.test:6969': ['h2'],
+  })
+
+  it('groups tracker URLs by host', () => {
+    expect([...hosts.keys()].sort()).toEqual(['b.test', 'tracker.a.test'])
+    expect([...hosts.get('tracker.a.test')!].sort()).toEqual(['h1', 'h2'])
+  })
+
+  it('matches torrents by host, and finds trackerless ones', () => {
+    expect(matchesTracker('h1', 'tracker.a.test', hosts)).toBe(true)
+    expect(matchesTracker('h1', 'b.test', hosts)).toBe(false)
+    expect(matchesTracker('h3', TRACKERLESS, hosts)).toBe(true)
+    expect(matchesTracker('h1', TRACKERLESS, hosts)).toBe(false)
+    expect(matchesTracker('h1', '', hosts)).toBe(true)
+  })
+
+  it('keeps an unparsable tracker as it is', () => {
+    expect(getTrackerHost('not a url')).toBe('not a url')
+  })
 })

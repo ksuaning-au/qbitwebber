@@ -293,9 +293,8 @@ export function TorrentFilesDialog({ torrent, initialTab = 'content', open, onOp
   const renderDownload = (file: TorrentFile) => {
     const isComplete = file.progress >= 1
     const url = isComplete && canDownload ? getFileDownloadUrl(torrent.hash, file.index) : null
-    const reason = !isComplete
-      ? 'File is not fully downloaded yet'
-      : downloadIssue ?? 'Checking whether this qBittorrent can serve files'
+    // Shown only on hover. A version that can't serve files at all matters more than one unfinished file.
+    const reason = downloadIssue ?? (!isComplete ? 'File is not fully downloaded yet' : 'Checking whether this qBittorrent can serve files')
     return <FileDownloadButton url={url} fileName={file.name} reason={reason} />
   }
 
@@ -338,10 +337,6 @@ export function TorrentFilesDialog({ torrent, initialTab = 'content', open, onOp
         <DialogHeader>
           <DialogTitle className="truncate">{torrent.name}</DialogTitle>
         </DialogHeader>
-
-        {downloadIssue && (
-          <p className="text-xs text-muted-foreground">{downloadIssue}</p>
-        )}
 
         <Tabs defaultValue={initialTab} className="flex-1 min-h-0">
           <TabsList className="grid w-full grid-cols-5">

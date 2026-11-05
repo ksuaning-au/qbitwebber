@@ -35,9 +35,9 @@ const LEGACY_PASSWORD_KEY = 'qbit_pass'
 
 function readStoredUsername(): string {
   try {
-    return localStorage.getItem(USERNAME_KEY) || 'admin'
+    return localStorage.getItem(USERNAME_KEY) || ''
   } catch {
-    return 'admin'
+    return ''
   }
 }
 
@@ -326,6 +326,26 @@ class QBittorrentClient {
       inactiveSeedingTimeLimit: String(limits.inactiveSeedingTimeLimit),
       shareLimitAction: limits.shareLimitAction,
     })
+  }
+
+  // How many connected peers have each piece. -1 means unknown.
+  async getPieceAvailability(hash: string): Promise<number[]> {
+    return this.request<number[]>(`torrents/pieceAvailability?hash=${hash}`)
+  }
+
+  async getSSLParameters(hash: string): Promise<{ ssl_certificate?: string; ssl_private_key?: string; ssl_dh_params?: string }> {
+    return this.request(`torrents/SSLParameters?hash=${hash}`)
+  }
+
+  async setSSLParameters(hash: string, certificate: string, privateKey: string, dhParams: string): Promise<void> {
+    await this.post('torrents/setSSLParameters', { hash, ssl_certificate: certificate, ssl_private_key: privateKey, ssl_dh_params: dhParams })
+  }
+
+  // Reads .torrent files without adding them. qBittorrent keeps them, so they can then be added by hash with chosen files.
+  async parseMetadata(files: File[]): Promise<unknown[]> {
+    const formData = new FormData()
+    for (const file of files) formData.append('torrents', file, file.name)
+    return this.request('torrents/parseMetadata', { method: 'POST', body: formData })
   }
 
   async getPieceStates(hash: string): Promise<number[]> {

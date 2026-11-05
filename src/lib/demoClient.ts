@@ -579,6 +579,21 @@ class DemoQBittorrentClient {
   async setShareLimits(_hashes: string[], _limits: ShareLimits): Promise<void> {
   }
 
+  async getPieceAvailability(hash: string): Promise<number[]> {
+    return (await this.getPieceStates(hash)).map((_, i) => (i % 97 === 0 ? 0 : 1 + (i % 4)))
+  }
+
+  async getSSLParameters(_hash: string): Promise<{ ssl_certificate?: string; ssl_private_key?: string; ssl_dh_params?: string }> {
+    return { ssl_certificate: '', ssl_private_key: '', ssl_dh_params: '' }
+  }
+
+  async setSSLParameters(_hash: string, _certificate: string, _privateKey: string, _dhParams: string): Promise<void> {
+  }
+
+  async parseMetadata(files: File[]): Promise<unknown[]> {
+    return files.map(file => ({ hash: 'd'.repeat(40), info: { name: file.name.replace(/\.torrent$/, ''), length: 2_000_000, files: [{ path: 'Demo/one.mkv', length: 1_500_000 }, { path: 'Demo/two.nfo', length: 500_000 }] } }))
+  }
+
   async getPieceStates(hash: string): Promise<number[]> {
     const progress = (await this.getTorrents()).find(torrent => torrent.hash === hash)?.progress ?? 0
     const total = 480

@@ -18,6 +18,16 @@ export function countPieces(states: number[]): PieceCounts {
   return { total: states.length, done, downloading }
 }
 
+// The fewest peers that have any piece in each drawn column. -1 means unknown.
+export function getAvailabilityColumns(availability: number[], columns: number): number[] {
+  if (availability.length === 0 || columns <= 0) return []
+  return Array.from({ length: columns }, (_, column) => {
+    const start = Math.floor((column * availability.length) / columns)
+    const end = Math.max(start + 1, Math.floor(((column + 1) * availability.length) / columns))
+    return Math.min(...availability.slice(start, end))
+  })
+}
+
 export interface PieceColumn {
   // Share of this column's pieces that are complete, from 0 to 1.
   done: number

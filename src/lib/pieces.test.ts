@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countPieces, getPieceColumns } from './pieces'
+import { countPieces, getAvailabilityColumns, getPieceColumns } from './pieces'
 
 describe('countPieces', () => {
   it('counts each state', () => {
@@ -35,5 +35,19 @@ describe('getPieceColumns', () => {
   it('returns nothing to draw without pieces or width', () => {
     expect(getPieceColumns([], 100)).toEqual([])
     expect(getPieceColumns([2], 0)).toEqual([])
+  })
+})
+
+describe('getAvailabilityColumns', () => {
+  it('keeps the lowest availability in each column', () => {
+    expect(getAvailabilityColumns([3, 0, 2, 5], 2)).toEqual([0, 2])
+  })
+
+  it('stretches a few pieces across many columns', () => {
+    expect(getAvailabilityColumns([1, 4], 4)).toEqual([1, 1, 4, 4])
+  })
+
+  it('returns nothing without data', () => {
+    expect(getAvailabilityColumns([], 10)).toEqual([])
   })
 })

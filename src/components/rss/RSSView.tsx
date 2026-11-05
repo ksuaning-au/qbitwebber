@@ -2,7 +2,7 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 import { Download, ExternalLink, Folder, FolderPlus, MoreVertical, Plus, RefreshCw, Rss } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
@@ -196,13 +196,12 @@ export function RSSView() {
   )
 
   const renderFeed = (feed: RSSFeed, depth: number) => (
-    <Card
+    <div
       key={feed.uid}
-      className={`cursor-pointer py-0 hover:bg-accent ${selectedFeed === feed.uid ? 'border-primary' : ''}`}
+      className={`cursor-pointer rounded-md border p-3 hover:bg-accent ${selectedFeed === feed.uid ? 'border-primary' : ''}`}
       style={{ marginLeft: depth * 12 }}
       onClick={() => setSelectedFeed(feed.uid)}
     >
-      <CardContent className="p-3">
         <div className="flex items-start gap-1">
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{feed.title}</p>
@@ -215,8 +214,7 @@ export function RSSView() {
           </div>
           {feedMenu(feed)}
         </div>
-      </CardContent>
-    </Card>
+    </div>
   )
 
   const renderFolder = (folder: string, depth: number): ReactNode => {
@@ -255,11 +253,11 @@ export function RSSView() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row">
-        <div className="w-full space-y-2 md:w-72">
-          <div className="flex items-center justify-between gap-1">
-            <h2 className="text-lg font-semibold">Feeds</h2>
+    <div className="space-y-4">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start">
+        <Card className="w-full gap-2 md:w-80">
+          <CardHeader className="flex items-center justify-between gap-1">
+            <CardTitle>Feeds</CardTitle>
             <div className="flex gap-1">
               <Button size="sm" variant="outline" aria-label="Refresh all feeds" title="Refresh all feeds" disabled={feeds.length === 0} onClick={() => refresh('', 'Refreshing all feeds')}>
                 <RefreshCw className="h-4 w-4" />
@@ -271,22 +269,22 @@ export function RSSView() {
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
-          </div>
-
+          </CardHeader>
+          <CardContent>
           {feeds.length === 0 && folders.length === 0 ? (
             <p className="text-sm text-muted-foreground">No feeds configured</p>
           ) : (
             renderFolder('', 0)
           )}
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="min-w-0 flex-1 space-y-2">
-          {current && (
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="min-w-0 truncate font-medium">{current.title}</h3>
-              <Button size="sm" variant="ghost" disabled={current.unreadCount === 0} onClick={() => markRead(current.path)}>Mark all as read</Button>
-            </div>
-          )}
+        <Card className="min-w-0 flex-1 gap-2">
+          <CardHeader className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="min-w-0 truncate">{current ? current.title : 'Articles'}</CardTitle>
+            {current && <Button size="sm" variant="ghost" disabled={current.unreadCount === 0} onClick={() => markRead(current.path)}>Mark all as read</Button>}
+          </CardHeader>
+          <CardContent className="space-y-2">
           {selectedFeed ? (
             itemsLoading ? (
               <div className="py-8 text-center text-muted-foreground">Loading articles...</div>
@@ -294,8 +292,7 @@ export function RSSView() {
               <div className="py-8 text-center text-muted-foreground">No articles</div>
             ) : (
               items.map((item) => (
-                <Card key={item.id} className="py-0">
-                  <CardContent className="p-3">
+                <div key={item.id} className="rounded-md border p-3">
                     <div className="flex items-start gap-2">
                       <Rss className={`mt-1 h-4 w-4 flex-shrink-0 ${item.isRead ? 'text-muted-foreground' : 'text-primary'}`} />
                       <div className="min-w-0 flex-1">
@@ -320,14 +317,14 @@ export function RSSView() {
                         <ExternalLink className="h-4 w-4" />
                       </a>
                     </div>
-                  </CardContent>
-                </Card>
+                </div>
               ))
             )
           ) : (
             <div className="py-8 text-center text-muted-foreground">Select a feed to view articles</div>
           )}
-        </div>
+          </CardContent>
+        </Card>
       </div>
       <RSSRules />
       {prompt && <PromptDialog prompt={prompt} folders={folders} onClose={() => setPrompt(null)} />}

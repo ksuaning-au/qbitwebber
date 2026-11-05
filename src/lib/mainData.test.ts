@@ -33,6 +33,13 @@ describe('applyMainDataUpdate', () => {
     expect(next.serverState).toEqual({ dht_nodes: 1 })
   })
 
+  it('keeps the tracker map up to date', () => {
+    const withTrackers = applyMainDataUpdate(first, { rid: 2, trackers: { 'udp://t.test': ['a'], 'udp://u.test': ['a', 'b'] } })
+    expect(withTrackers.trackers).toEqual({ 'udp://t.test': ['a'], 'udp://u.test': ['a', 'b'] })
+    const next = applyMainDataUpdate(withTrackers, { rid: 3, trackers: { 'udp://u.test': ['b'] }, trackers_removed: ['udp://t.test'] })
+    expect(next.trackers).toEqual({ 'udp://u.test': ['b'] })
+  })
+
   it('does not change the previous state', () => {
     const before: MainData = JSON.parse(JSON.stringify(first))
     applyMainDataUpdate(first, { rid: 2, torrents: { a: { progress: 1 } }, torrents_removed: ['b'] })

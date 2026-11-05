@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { useTorrentPieces } from '@/hooks/useApi'
-import { countPieces, getPieceColumns } from '@/lib/pieces'
+import { useTorrentAvailability, useTorrentPieces } from '@/hooks/useApi'
+import { countPieces, getAvailabilityColumns, getPieceColumns } from '@/lib/pieces'
 
 const DONE_COLOR = '#22c55e'
 const DOWNLOADING_COLOR = '#f59e0b'
@@ -29,6 +29,54 @@ function drawPieces(canvas: HTMLCanvasElement, states: number[]) {
     }
     context.fillRect(x, 0, 1, height)
   })
+}
+
+const AVAILABLE_COLOR = '#3b82f6'
+const UNAVAILABLE_COLOR = '#ef4444'
+
+function drawAvailability(canvas: HTMLCanvasElement, availability: number[]) {
+  const context = canvas.getContext('2d')
+  if (!context) return
+  const width = Math.round(canvas.clientWidth * window.devicePixelRatio)
+  const height = Math.round(canvas.clientHeight * window.devicePixelRatio)
+  canvas.width = width
+  canvas.height = height
+  getAvailabilityColumns(availability, width).forEach((peers, x) => {
+    if (peers < 0) return
+    // More peers with a piece shows as a stronger blue, up to five.
+    context.globalAlpha = peers === 0 ? 1 : 0.3 + 0.7 * Math.min(peers, 5) / 5
+    context.fillStyle = peers === 0 ? UNAVAILABLE_COLOR : AVAILABLE_COLOR
+    context.fillRect(x, 0, 1, height)
+  })
+}
+
+// Which pieces connected peers can send, like qBittorrent's availability bar.
+function AvailabilityBar({ hash }: { hash: string }) {
+  const { data: availability } = useTorrentAvailability(hash, true)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !availability) return
+    const draw = () => drawAvailability(canvas, availability)
+    draw()
+    const observer = new ResizeObserver(draw)
+    observer.observe(canvas)
+    return () => observer.disconnect()
+  }, [availability])
+
+  if (!availability?.length || availability.every(peers => peers < 0)) return null
+  const missing = availability.filter(peers => peers === 0).length
+  const summary = missing === 0
+    ? 'Every piece is available from connected peers'
+    : `${missing.toLocaleString()} ${missing === 1 ? 'piece isn\'t' : 'pieces aren\'t'} available from connected peers`
+
+  return (
+    <div className="space-y-1 pt-1">
+      <canvas ref={canvasRef} role="img" aria-label={summary} className="block h-2 w-full rounded-sm bg-muted" />
+      <p className={`text-xs ${missing ? 'text-red-500' : 'text-muted-foreground'}`}>{summary}</p>
+    </div>
+  )
 }
 
 function LegendItem({ className, label }: { className: string; label: string }) {
@@ -74,6 +122,7 @@ export function PieceBar({ hash, torrentComplete }: { hash: string; torrentCompl
           <LegendItem className="border bg-muted" label="Missing" />
         </span>
       </div>
+      {!torrentComplete && <AvailabilityBar hash={hash} />}
     </div>
   )
 }

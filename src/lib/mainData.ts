@@ -32,6 +32,8 @@ export interface ServerState {
 export interface MainData {
   rid: number
   torrents: Record<string, Torrent>
+  // Each tracker URL and the hashes of the torrents that use it.
+  trackers: Record<string, string[]>
   serverState: ServerState
 }
 
@@ -40,6 +42,8 @@ export interface MainDataUpdate {
   full_update?: boolean
   torrents?: Record<string, Partial<Torrent>>
   torrents_removed?: string[]
+  trackers?: Record<string, string[]>
+  trackers_removed?: string[]
   server_state?: Partial<ServerState>
 }
 
@@ -53,9 +57,15 @@ export function applyMainDataUpdate(previous: MainData | null, update: MainDataU
   }
   for (const hash of update.torrents_removed ?? []) delete torrents[hash]
 
+  // A tracker's entry is sent whole whenever its torrent list changes.
+  const trackers: Record<string, string[]> = full ? {} : { ...previous.trackers }
+  for (const [url, hashes] of Object.entries(update.trackers ?? {})) trackers[url] = hashes
+  for (const url of update.trackers_removed ?? []) delete trackers[url]
+
   return {
     rid: update.rid ?? previous?.rid ?? 0,
     torrents,
+    trackers,
     serverState: { ...(full ? {} : previous.serverState), ...update.server_state },
   }
 }

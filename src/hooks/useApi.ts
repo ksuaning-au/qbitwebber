@@ -78,6 +78,12 @@ export function useTransferInfo() {
   return useMainData(selectServerState)
 }
 
+const selectTrackers = (data: MainData) => data.trackers
+
+export function useTrackerMap() {
+  return useMainData(selectTrackers)
+}
+
 export function useTorrentFiles(hash: string | null) {
   return useQuery({
     queryKey: ['torrent', hash, 'files'],
@@ -119,6 +125,15 @@ export function useWebSeeds(hash: string) {
     queryKey: ['torrent', hash, 'webseeds'],
     queryFn: () => qbitClient.getWebSeeds(hash),
     enabled: !!hash,
+  })
+}
+
+export function useTorrentAvailability(hash: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['torrent', hash, 'availability'],
+    queryFn: () => qbitClient.getPieceAvailability(hash),
+    enabled,
+    refetchInterval: 5000,
   })
 }
 

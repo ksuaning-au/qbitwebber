@@ -82,9 +82,12 @@ export function AddTorrentView() {
 
   const linkList = parseLinks(links)
   const sourceCount = linkList.length + files.length
-  const canChooseFiles = linkList.length === 1 && files.length === 0
-  // The file choice belongs to the link it was fetched for.
-  const activeMetadata = metadata && metadataSource === linkList[0] && canChooseFiles ? metadata : null
+  // qBittorrent can apply a file choice to one torrent at a time, from a link or a .torrent file.
+  const singleSource = linkList.length === 1 && files.length === 0 ? linkList[0] : linkList.length === 0 && files.length === 1 ? files[0] : null
+  const canChooseFiles = singleSource !== null
+  const sourceKey = typeof singleSource === 'string' ? singleSource : singleSource ? `file:${singleSource.name}:${singleSource.size}` : null
+  // The file choice belongs to the source it was read from.
+  const activeMetadata = metadata && metadataSource === sourceKey && canChooseFiles ? metadata : null
 
   // Stops a running file-list request when the page closes.
   useEffect(() => () => { fetchRun.current++ }, [])
@@ -109,11 +112,31 @@ export function AddTorrentView() {
   }
 
   const fetchFileList = async () => {
-    const source = linkList[0]
     const run = ++fetchRun.current
     setFetchingMetadata(true)
     setMetadata(null)
     const started = Date.now()
+    if (singleSource instanceof File) {
+      try {
+        // qBittorrent reads the file and keeps it, so it can be added by hash with the chosen files.
+        const [parsed] = await qbitClient.parseMetadata([singleSource])
+        const found = readMetadata(parsed)
+        const hash = (parsed as { hash?: string } | undefined)?.hash
+        if (fetchRun.current !== run) return
+        if (!found || !hash) throw new Error("qBittorrent didn't return the file list")
+        setMetadata({ ...found, hash })
+        setMetadataSource(sourceKey)
+        setPriorities(found.files.map(() => 1))
+      } catch (error) {
+        if (fetchRun.current !== run) return
+        const message = error instanceof Error ? error.message : ''
+        toast.error("Couldn't read the .torrent file", { description: message.includes('404') ? 'This needs qBittorrent 5.2 or newer.' : message || undefined })
+      } finally {
+        if (fetchRun.current === run) setFetchingMetadata(false)
+      }
+      return
+    }
+    const source = linkList[0]
     try {
       while (fetchRun.current === run) {
         const found = readMetadata(await qbitClient.fetchMetadata(source))
@@ -147,7 +170,9 @@ export function AddTorrentView() {
       toast.error('Add a link or a .torrent file')
       return
     }
-    const params = buildAddParams(options, linkList, sourceCount)
+    // A .torrent read for its file list is added by hash, which picks up the copy qBittorrent kept.
+    const addByHash = activeMetadata?.hash && singleSource instanceof File ? activeMetadata.hash : null
+    const params = buildAddParams(options, addByHash ? [addByHash] : linkList, sourceCount)
     if (typeof params === 'string') {
       toast.error(params)
       return
@@ -159,7 +184,7 @@ export function AddTorrentView() {
 
     setAdding(true)
     try {
-      const result = await qbitClient.addTorrents(params, files, activeMetadata ? priorities : undefined)
+      const result = await qbitClient.addTorrents(params, addByHash ? [] : files, activeMetadata ? priorities : undefined)
       const { ok, message } = describeAddResult(result, sourceCount)
       if (ok) {
         toast.success(message)
@@ -185,7 +210,7 @@ export function AddTorrentView() {
   const categoryNames = Object.keys(categories ?? {}).sort()
 
   return (
-    <div className="mx-auto max-w-xl space-y-4">
+    <div className="space-y-4">
       <Card>
         <CardHeader>
           <CardTitle>Add Torrent</CardTitle>
@@ -240,7 +265,7 @@ export function AddTorrentView() {
                       {fetchingMetadata ? 'Getting file list...' : 'Choose files first'}
                     </Button>
                     {fetchingMetadata && <Button type="button" size="sm" variant="ghost" onClick={stopFetching}>Stop</Button>}
-                    <span className="text-xs text-muted-foreground">Optional. Magnet links need peers to share the list.</span>
+                    <span className="text-xs text-muted-foreground">{singleSource instanceof File ? 'Optional.' : 'Optional. Magnet links need peers to share the list.'}</span>
                   </div>
                 ) : (
                   <>

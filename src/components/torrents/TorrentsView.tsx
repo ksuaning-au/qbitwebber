@@ -42,12 +42,13 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { formatSize } from '@/lib/utils'
-import { filterTorrents, STATUS_FILTERS, type StatusFilter } from '@/lib/torrentFilters'
+import { filterTorrents, groupTrackersByHost, matchesStatus, parseTags, STATUS_FILTERS, TRACKERLESS, type StatusFilter } from '@/lib/torrentFilters'
 import { Input } from '@/components/ui/input'
-import { useCategories, useTags, useTorrents, usePauseTorrents, useResumeTorrents, useDeleteTorrents } from '@/hooks/useApi'
+import { useCategories, useTags, useTorrents, usePauseTorrents, useResumeTorrents, useDeleteTorrents, useTrackerMap } from '@/hooks/useApi'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { PageBoundary } from '@/components/PageBoundary'
 import { StatusLine } from './StatusLine'
+import { BulkActions } from './BulkActions'
 import type { Torrent } from '@/types'
 
 const CategoriesTagsDialog = lazy(() => import('./CategoriesTagsDialog').then(m => ({ default: m.CategoriesTagsDialog })))
@@ -164,6 +165,9 @@ export function TorrentsView() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [tagFilter, setTagFilter] = useState('')
+  const [trackerFilter, setTrackerFilter] = useState('')
+  const { data: trackerMap } = useTrackerMap()
+  const trackerHosts = useMemo(() => groupTrackersByHost(trackerMap ?? {}), [trackerMap])
   const { data: categories } = useCategories()
   const { data: tags } = useTags()
   const isDesktop = useMediaQuery(DESKTOP_QUERY)
@@ -178,11 +182,26 @@ export function TorrentsView() {
   const filesDialogTorrent = torrents?.find(t => t.hash === filesDialogHash) ?? null
 
   const filteredTorrents = useMemo(
-    () => filterTorrents(torrents ?? [], { name: nameFilter, status: statusFilter, category: categoryFilter, tag: tagFilter }),
-    [torrents, nameFilter, statusFilter, categoryFilter, tagFilter],
+    () => filterTorrents(torrents ?? [], { name: nameFilter, status: statusFilter, category: categoryFilter, tag: tagFilter, tracker: trackerFilter }, trackerHosts),
+    [torrents, nameFilter, statusFilter, categoryFilter, tagFilter, trackerFilter, trackerHosts],
   )
 
-  const filtersActive = !!nameFilter.trim() || statusFilter !== 'all' || !!categoryFilter || !!tagFilter
+  // How many torrents each filter choice would show on its own, as qBittorrent's sidebar does.
+  const counts = useMemo(() => {
+    const list = torrents ?? []
+    const status = Object.fromEntries(STATUS_FILTERS.map(({ value }) => [value, list.filter(t => matchesStatus(t, value)).length]))
+    const category: Record<string, number> = {}
+    const tag: Record<string, number> = {}
+    for (const t of list) {
+      if (t.category) category[t.category] = (category[t.category] ?? 0) + 1
+      for (const name of parseTags(t.tags)) tag[name] = (tag[name] ?? 0) + 1
+    }
+    const tracked = new Set([...trackerHosts.values()].flatMap(set => [...set]))
+    const tracker = Object.fromEntries([...trackerHosts].map(([host, set]) => [host, set.size]))
+    return { status, category, tag, tracker, trackerless: list.filter(t => !tracked.has(t.hash)).length, total: list.length }
+  }, [torrents, trackerHosts])
+
+  const filtersActive = !!nameFilter.trim() || statusFilter !== 'all' || !!categoryFilter || !!tagFilter || !!trackerFilter
 
   const sortedTorrents = useMemo(() => {
     return [...filteredTorrents].sort((a, b) => {
@@ -322,6 +341,7 @@ export function TorrentsView() {
           <Button variant="ghost" size="sm" onClick={() => requestDeleteSelected(true)}>
             <Trash2 className="h-4 w-4 mr-1" /> Delete + Files
           </Button>
+          <BulkActions torrents={torrents.filter(t => selected.has(t.hash))} />
         </div>
       )}
 
@@ -400,7 +420,7 @@ export function TorrentsView() {
           onChange={(e) => { setStatusFilter(e.target.value as StatusFilter); setCurrentPage(1) }}
           className="border-input dark:bg-input/30 col-span-2 h-9 min-w-0 rounded-md border bg-transparent px-2 text-sm"
         >
-          {STATUS_FILTERS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+          {STATUS_FILTERS.map(({ value, label }) => <option key={value} value={value}>{label} ({counts.status[value] ?? 0})</option>)}
         </select>
         <select
           aria-label="Filter by category"
@@ -409,7 +429,7 @@ export function TorrentsView() {
           className="border-input dark:bg-input/30 h-9 min-w-0 rounded-md border bg-transparent px-2 text-sm"
         >
           <option value="">All categories</option>
-          {Object.keys(categories ?? {}).map(category => <option key={category} value={category}>{category}</option>)}
+          {Object.keys(categories ?? {}).map(category => <option key={category} value={category}>{category} ({counts.category[category] ?? 0})</option>)}
         </select>
         <select
           aria-label="Filter by tag"
@@ -418,7 +438,17 @@ export function TorrentsView() {
           className="border-input dark:bg-input/30 h-9 min-w-0 rounded-md border bg-transparent px-2 text-sm"
         >
           <option value="">All tags</option>
-          {(tags ?? []).map(tag => <option key={tag} value={tag}>{tag}</option>)}
+          {(tags ?? []).map(tag => <option key={tag} value={tag}>{tag} ({counts.tag[tag] ?? 0})</option>)}
+        </select>
+        <select
+          aria-label="Filter by tracker"
+          value={trackerFilter}
+          onChange={(e) => { setTrackerFilter(e.target.value); setCurrentPage(1) }}
+          className="border-input dark:bg-input/30 col-span-2 h-9 min-w-0 rounded-md border bg-transparent px-2 text-sm"
+        >
+          <option value="">All trackers</option>
+          <option value={TRACKERLESS}>Trackerless ({counts.trackerless})</option>
+          {[...trackerHosts.keys()].sort().map(host => <option key={host} value={host}>{host} ({counts.tracker[host] ?? 0})</option>)}
         </select>
         <Button type="button" variant="ghost" size="sm" className="col-span-2 justify-start md:col-span-1" onClick={() => setManageOpen(true)}>
           Manage categories and tags

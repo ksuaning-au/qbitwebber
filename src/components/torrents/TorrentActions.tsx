@@ -9,6 +9,7 @@ import { qbitClient, type QueueMove } from '@/lib/api'
 import { parseTags } from '@/lib/torrentFilters'
 import { toast } from '@/hooks/use-toast'
 import { ShareLimitsForm } from './ShareLimitsForm'
+import { SSLParametersForm } from './SSLParametersForm'
 import type { Torrent } from '@/types'
 
 const toKiB = (bytes: number) => (bytes > 0 ? String(Math.round(bytes / 1024)) : '0')
@@ -180,6 +181,7 @@ export function TorrentActions({ torrent }: { torrent: Torrent }) {
       <FieldForm id="torrent-dl-limit" label="Download limit (KiB/s, 0 = unlimited)" type="number" value={dlLimit} onChange={setDlLimit} pending={action.isPending} onSave={() => saveLimit(dlLimit, qbitClient.setDownloadLimit, 'Download limit saved', 'Failed to save download limit')} />
       <FieldForm id="torrent-up-limit" label="Upload limit (KiB/s, 0 = unlimited)" type="number" value={upLimit} onChange={setUpLimit} pending={action.isPending} onSave={() => saveLimit(upLimit, qbitClient.setUploadLimit, 'Upload limit saved', 'Failed to save upload limit')} />
       <ShareLimitsForm torrent={torrent} />
+      <SSLParametersForm hash={torrent.hash} />
     </div>
   )
 }

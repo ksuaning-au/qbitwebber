@@ -116,6 +116,8 @@ export function describeAddResult(result: unknown, sourceCount: number): { ok: b
 }
 
 export interface TorrentMetadata {
+  // Set when qBittorrent read a .torrent file, so it can be added by hash.
+  hash?: string
   name: string
   size: number
   files: { path: string; length: number }[]
