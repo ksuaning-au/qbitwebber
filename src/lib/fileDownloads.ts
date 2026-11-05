@@ -54,8 +54,33 @@ function pathSegments(path: string): string[] {
 }
 
 // Files of an unfinished torrent stay in the incomplete directory if one is set.
-function torrentDirectory(torrent: Torrent): string {
+export function getTorrentDirectory(torrent: Torrent): string {
   return torrent.progress < 1 && torrent.download_path ? torrent.download_path : torrent.save_path
+}
+
+// The torrent's directory relative to the configured root, or null if it is
+// outside the root.
+function relativeTorrentDirectory(settings: FileDownloadSettings, torrent: Torrent): string[] | null {
+  // An empty root means the base URL points directly at the torrent's directory.
+  if (!settings.rootPath.trim()) return []
+
+  const root = pathSegments(settings.rootPath)
+  const directory = pathSegments(getTorrentDirectory(torrent))
+  if (root.some((segment, i) => directory[i] !== segment)) return null
+  return directory.slice(root.length)
+}
+
+export type FileDownloadIssue = 'not-configured' | 'invalid-url' | 'outside-directory'
+
+// Says why the files of a torrent cannot be linked, or null if they can.
+export function getFileDownloadIssue(
+  settings: FileDownloadSettings,
+  torrent: Torrent,
+): FileDownloadIssue | null {
+  if (!settings.baseUrl.trim()) return 'not-configured'
+  if (!parseBaseUrl(settings.baseUrl)) return 'invalid-url'
+  if (!relativeTorrentDirectory(settings, torrent)) return 'outside-directory'
+  return null
 }
 
 // Builds the link for a file of a torrent. `fileName` is the path relative to
@@ -67,12 +92,8 @@ export function getFileDownloadUrl(
   fileName: string,
 ): string | null {
   const base = parseBaseUrl(settings.baseUrl)
-  if (!base) return null
-
-  const root = pathSegments(settings.rootPath)
-  const directory = pathSegments(torrentDirectory(torrent))
-  const relativeDirectory = settings.rootPath.trim() ? directory.slice(root.length) : []
-  if (root.some((segment, i) => directory[i] !== segment)) return null
+  const relativeDirectory = relativeTorrentDirectory(settings, torrent)
+  if (!base || !relativeDirectory) return null
 
   const segments = [...relativeDirectory, ...pathSegments(fileName)]
   if (segments.some(segment => segment === '.' || segment === '..')) return null

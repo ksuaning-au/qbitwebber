@@ -12,7 +12,12 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useTorrentFiles, useSetFilePriority } from '@/hooks/useApi'
 import { toast } from '@/hooks/use-toast'
-import { getFileDownloadUrl, loadFileDownloadSettings } from '@/lib/fileDownloads'
+import {
+  getFileDownloadIssue,
+  getFileDownloadUrl,
+  getTorrentDirectory,
+  loadFileDownloadSettings,
+} from '@/lib/fileDownloads'
 import type { Torrent, TorrentFile } from '@/types'
 
 function formatSize(bytes: number): string {
@@ -32,18 +37,24 @@ interface FileDownloadButtonProps {
 
 function FileDownloadButton({ url, fileName, reason }: FileDownloadButtonProps) {
   if (!url) {
+    // A disabled button ignores the pointer, so the wrapper shows the tooltip and
+    // keeps clicks from reaching the file row, which would toggle its selection.
     return (
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-6 w-6 flex-shrink-0"
-        disabled
+      <span
+        className="inline-flex flex-shrink-0 cursor-not-allowed"
         title={reason}
-        aria-label={`Download ${fileName}: ${reason}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <Download className="h-3 w-3" />
-      </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6"
+          disabled
+          aria-label={`Download ${fileName}: ${reason}`}
+        >
+          <Download className="h-3 w-3" />
+        </Button>
+      </span>
     )
   }
 
@@ -201,12 +212,20 @@ export function TorrentFilesDialog({ torrent, open, onOpenChange }: TorrentFiles
   const totalSize = files?.reduce((acc, f) => acc + f.size, 0) || 0
   const selectedSize = files?.filter(f => f.priority > 0).reduce((acc, f) => acc + f.size, 0) || 0
 
+  const downloadIssue = getFileDownloadIssue(downloadSettings, torrent)
+  const downloadIssueMessage = {
+    'not-configured': 'To download files, set up File Downloads under Settings > General.',
+    'invalid-url': 'The file server URL under Settings > General > File Downloads is not valid. It must be an http(s) URL or a relative path.',
+    'outside-directory': `Files can't be downloaded because this torrent's folder (${getTorrentDirectory(torrent)}) is not inside the directory set under Settings > General > File Downloads (${downloadSettings.rootPath}). Correct that directory, or leave it empty if the file server URL points directly at this folder.`,
+  }
+  const downloadIssueText = downloadIssue && downloadIssueMessage[downloadIssue]
+
   const renderDownload = (file: TorrentFile) => {
     const isComplete = file.progress >= 1
     const url = isComplete ? getFileDownloadUrl(downloadSettings, torrent, file.name) : null
     const reason = !isComplete
       ? 'File is not fully downloaded yet'
-      : 'Set up File Downloads in Settings first, and make sure this torrent is inside that directory'
+      : downloadIssueText ?? "This file's path can't be turned into a download link"
     return <FileDownloadButton url={url} fileName={file.name} reason={reason} />
   }
 
@@ -229,10 +248,8 @@ export function TorrentFilesDialog({ torrent, open, onOpenChange }: TorrentFiles
           <DialogTitle className="truncate">{torrent.name}</DialogTitle>
         </DialogHeader>
 
-        {!downloadSettings.baseUrl && (
-          <p className="text-xs text-muted-foreground">
-            To download files, set up File Downloads under Settings &gt; General.
-          </p>
+        {downloadIssueText && (
+          <p className="text-xs text-muted-foreground break-words">{downloadIssueText}</p>
         )}
 
         <Tabs defaultValue="content" className="flex-1 min-h-0">
