@@ -6,6 +6,7 @@ import { useCategories, useTorrentAction } from '@/hooks/useApi'
 import { qbitClient } from '@/lib/api'
 import { parseTags } from '@/lib/torrentFilters'
 import { toast } from '@/hooks/use-toast'
+import { ShareLimitsForm } from './ShareLimitsForm'
 import type { Torrent } from '@/types'
 
 const toKiB = (bytes: number) => (bytes > 0 ? String(Math.round(bytes / 1024)) : '0')
@@ -39,6 +40,7 @@ function FieldForm({ id, label, value, onChange, onSave, type = 'text', placehol
 // Field values start from the torrent and don't follow refreshes, so typing isn't overwritten.
 export function TorrentActions({ torrent }: { torrent: Torrent }) {
   const hashes = [torrent.hash]
+  const stopped = /^(stopped|paused)/.test(torrent.state)
   const action = useTorrentAction()
   const { data: categories } = useCategories()
   const [name, setName] = useState(torrent.name)
@@ -80,6 +82,12 @@ export function TorrentActions({ torrent }: { torrent: Torrent }) {
         <Button type="button" size="sm" variant={torrent.force_start ? 'secondary' : 'outline'} aria-pressed={!!torrent.force_start} disabled={action.isPending} onClick={() => run(() => qbitClient.setForceStart(hashes, !torrent.force_start), torrent.force_start ? 'Force start off' : 'Force start on', 'Failed to change force start')}>
           Force start
         </Button>
+        {/* A disabled button shows no tooltip, so the wrapper carries it. */}
+        <span className={stopped ? 'cursor-not-allowed' : undefined} title={stopped ? 'Start the torrent first: stopped torrents don\'t contact trackers' : 'Ask the trackers for more peers now'}>
+          <Button type="button" size="sm" variant="outline" disabled={action.isPending || stopped} onClick={() => run(() => qbitClient.reannounceTorrents(hashes), 'Reannounce sent', 'Failed to reannounce')}>
+            Reannounce
+          </Button>
+        </span>
       </div>
 
       <div className="space-y-1">
@@ -106,6 +114,7 @@ export function TorrentActions({ torrent }: { torrent: Torrent }) {
       <FieldForm id="torrent-location" label="Save location (moves the files)" value={location} onChange={setLocation} pending={action.isPending} onSave={() => run(() => qbitClient.setLocation(hashes, location.trim()), 'Move started', 'Failed to move')} />
       <FieldForm id="torrent-dl-limit" label="Download limit (KiB/s, 0 = unlimited)" type="number" value={dlLimit} onChange={setDlLimit} pending={action.isPending} onSave={() => saveLimit(dlLimit, qbitClient.setDownloadLimit, 'Download limit saved', 'Failed to save download limit')} />
       <FieldForm id="torrent-up-limit" label="Upload limit (KiB/s, 0 = unlimited)" type="number" value={upLimit} onChange={setUpLimit} pending={action.isPending} onSave={() => saveLimit(upLimit, qbitClient.setUploadLimit, 'Upload limit saved', 'Failed to save upload limit')} />
+      <ShareLimitsForm torrent={torrent} />
     </div>
   )
 }

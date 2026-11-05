@@ -12,6 +12,7 @@ import type {
   TorrentCategory,
   TorrentPeer
 } from '@/types'
+import type { ShareLimits } from './shareLimits'
 
 import { demoClient } from './demoClient'
 import { flattenRSSTree, type RawRSSTree } from './rss'
@@ -222,6 +223,25 @@ class QBittorrentClient {
 
   async recheckTorrents(hashes: string[]): Promise<void> {
     await this.post('torrents/recheck', { hashes: hashes.join('|') })
+  }
+
+  async reannounceTorrents(hashes: string[]): Promise<void> {
+    await this.post('torrents/reannounce', { hashes: hashes.join('|') })
+  }
+
+  // qBittorrent 5.2 rejects this call unless every value is sent, including the action.
+  async setShareLimits(hashes: string[], limits: ShareLimits): Promise<void> {
+    await this.post('torrents/setShareLimits', {
+      hashes: hashes.join('|'),
+      ratioLimit: String(limits.ratioLimit),
+      seedingTimeLimit: String(limits.seedingTimeLimit),
+      inactiveSeedingTimeLimit: String(limits.inactiveSeedingTimeLimit),
+      shareLimitAction: limits.shareLimitAction,
+    })
+  }
+
+  async getPieceStates(hash: string): Promise<number[]> {
+    return this.request<number[]>(`torrents/pieceStates?hash=${hash}`)
   }
 
   async setForceStart(hashes: string[], value: boolean): Promise<void> {

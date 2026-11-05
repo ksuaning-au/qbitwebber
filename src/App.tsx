@@ -50,10 +50,13 @@ function AppContent() {
   )
 }
 
+// Puts notifications over the top banner, clear of the phone's notch.
+const TOAST_OFFSET = { top: 'calc(env(safe-area-inset-top) + 0.125rem)' }
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Toaster position="bottom-right" />
+      <Toaster position="top-center" offset={TOAST_OFFSET} mobileOffset={TOAST_OFFSET} />
       <AuthProvider>
         <AppContent />
       </AuthProvider>

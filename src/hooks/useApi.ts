@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { qbitClient } from '@/lib/api'
 import { toast } from '@/hooks/use-toast'
+import { PIECE_DONE } from '@/lib/pieces'
 import type { RSSRule } from '@/types'
 
 function showActionError(message: string, error: unknown) {
@@ -65,6 +66,15 @@ export function useTorrentPeers(hash: string) {
     queryFn: () => qbitClient.getTorrentPeers(hash),
     enabled: !!hash,
     refetchInterval: 5000,
+  })
+}
+
+// Keeps polling a finished torrent until the bar has caught up, and again after a recheck.
+export function useTorrentPieces(hash: string, torrentComplete: boolean) {
+  return useQuery({
+    queryKey: ['torrent', hash, 'pieces'],
+    queryFn: () => qbitClient.getPieceStates(hash),
+    refetchInterval: (query) => (torrentComplete && query.state.data?.every(state => state === PIECE_DONE) ? false : 5000),
   })
 }
 

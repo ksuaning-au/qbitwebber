@@ -10,6 +10,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useTorrentFiles, useTorrentPeers, useTorrentTrackers, useSetFilePriority, useWebApiVersion } from '@/hooks/useApi'
 import { TorrentActions } from './TorrentActions'
+import { PieceBar } from './PieceBar'
 import { toast } from '@/hooks/use-toast'
 import { getFileDownloadUrl, supportsFileDownload } from '@/lib/fileDownloads'
 import { formatSize } from '@/lib/utils'
@@ -296,6 +297,8 @@ export function TorrentFilesDialog({ torrent, initialTab = 'content', open, onOp
           </TabsList>
 
           <TabsContent value="details" className="overflow-y-auto">
+            <PieceBar hash={torrent.hash} torrentComplete={torrent.progress >= 1} />
+
             <dl className="text-sm divide-y">
               {details.map(([label, value]) => (
                 <div key={label} className="flex justify-between gap-4 px-2 py-1.5">

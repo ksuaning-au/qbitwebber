@@ -11,6 +11,7 @@ import type {
   TorrentCategory,
   TorrentPeer,
 } from '@/types'
+import type { ShareLimits } from './shareLimits'
 
 class DemoQBittorrentClient {
   private isLoggedIn = false
@@ -444,6 +445,21 @@ class DemoQBittorrentClient {
   }
 
   async recheckTorrents(_hashes: string[]): Promise<void> {
+  }
+
+  async reannounceTorrents(_hashes: string[]): Promise<void> {
+  }
+
+  async setShareLimits(_hashes: string[], _limits: ShareLimits): Promise<void> {
+  }
+
+  async getPieceStates(hash: string): Promise<number[]> {
+    const progress = (await this.getTorrents()).find(torrent => torrent.hash === hash)?.progress ?? 0
+    const total = 480
+    return Array.from({ length: total }, (_, i) => {
+      if (i / total < progress) return 2
+      return progress > 0 && i / total < progress + 0.02 ? 1 : 0
+    })
   }
 
   async setForceStart(_hashes: string[], _value: boolean): Promise<void> {

@@ -44,6 +44,8 @@ export interface Torrent {
   save_path: string
   seeding_time: number
   seeding_time_limit: number
+  // Sent by qBittorrent 5.2 and newer.
+  share_limit_action?: string
   seen_complete: number
   size: number
   state: TorrentState
