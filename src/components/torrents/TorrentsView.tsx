@@ -25,6 +25,14 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   Table,
   TableBody,
   TableCell,
@@ -35,6 +43,12 @@ import {
 import { TorrentFilesDialog } from './TorrentFilesDialog'
 import { useTorrents, usePauseTorrents, useResumeTorrents, useDeleteTorrents } from '@/hooks/useApi'
 import type { Torrent } from '@/types'
+
+interface PendingDelete {
+  hashes: string[]
+  names: string[]
+  deleteFiles: boolean
+}
 
 function formatSize(bytes: number): string {
   if (bytes === 0) return '0 B'
@@ -143,6 +157,7 @@ export function TorrentsView() {
   const [currentPage, setCurrentPage] = useState(1)
   const [filesDialogTorrent, setFilesDialogTorrent] = useState<Torrent | null>(null)
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null)
 
   const sortedTorrents = useMemo(() => {
     if (!torrents) return []
@@ -222,9 +237,20 @@ export function TorrentsView() {
     setSelected(new Set())
   }
 
-  const handleDelete = (deleteFiles: boolean) => {
-    deleteMutation.mutate({ hashes: Array.from(selected), deleteFiles })
-    setSelected(new Set())
+  const requestDelete = (targets: Torrent[], deleteFiles: boolean) => {
+    setPendingDelete({ hashes: targets.map(t => t.hash), names: targets.map(t => t.name), deleteFiles })
+  }
+
+  const requestDeleteSelected = (deleteFiles: boolean) => {
+    requestDelete(torrents?.filter(t => selected.has(t.hash)) ?? [], deleteFiles)
+  }
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return
+    const { hashes, deleteFiles } = pendingDelete
+    deleteMutation.mutate({ hashes, deleteFiles })
+    setSelected(prev => new Set([...prev].filter(hash => !hashes.includes(hash))))
+    setPendingDelete(null)
   }
 
   if (isLoading) {
@@ -246,10 +272,10 @@ export function TorrentsView() {
           <Button variant="ghost" size="sm" onClick={handlePause}>
             <Pause className="h-4 w-4 mr-1" /> Pause
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => handleDelete(false)}>
+          <Button variant="ghost" size="sm" onClick={() => requestDeleteSelected(false)}>
             <Trash2 className="h-4 w-4 mr-1" /> Delete
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => handleDelete(true)}>
+          <Button variant="ghost" size="sm" onClick={() => requestDeleteSelected(true)}>
             <Trash2 className="h-4 w-4 mr-1" /> Delete + Files
           </Button>
         </div>
@@ -409,10 +435,10 @@ export function TorrentsView() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => deleteMutation.mutate({ hashes: [torrent.hash], deleteFiles: false })}>
+                                <DropdownMenuItem onClick={() => requestDelete([torrent], false)}>
                                   Delete
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => deleteMutation.mutate({ hashes: [torrent.hash], deleteFiles: true })} className="text-destructive">
+                                <DropdownMenuItem onClick={() => requestDelete([torrent], true)} className="text-destructive">
                                   Delete + Files
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
@@ -505,7 +531,7 @@ export function TorrentsView() {
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setFilesDialogTorrent(torrent)}>
                     <Files className="h-3 w-3" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteMutation.mutate({ hashes: [torrent.hash], deleteFiles: false })}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => requestDelete([torrent], false)}>
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
@@ -534,6 +560,34 @@ export function TorrentsView() {
           </div>
         </div>
       )}
+
+      <Dialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {pendingDelete?.names.length === 1
+                ? 'Delete this torrent?'
+                : `Delete ${pendingDelete?.names.length} torrents?`}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingDelete?.deleteFiles
+                ? 'The downloaded files will also be permanently deleted from disk. This cannot be undone.'
+                : 'This only removes the listing from qBittorrent. The downloaded files stay on disk.'}
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="text-sm max-h-40 overflow-y-auto space-y-1">
+            {pendingDelete?.names.map((name, i) => (
+              <li key={pendingDelete.hashes[i]} className="break-words">{name}</li>
+            ))}
+          </ul>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingDelete(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              {pendingDelete?.deleteFiles ? 'Delete + Files' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <TorrentFilesDialog
         torrent={filesDialogTorrent}
