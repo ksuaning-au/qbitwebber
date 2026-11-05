@@ -51,17 +51,17 @@ export function Layout({ activeTab, onTabChange, children }: LayoutProps) {
             >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
-            <h1 className="text-lg font-semibold hidden sm:block" style={{fontFamily: "Silkscreen", fontSize: 24}}>qBittorrent</h1>
+            <h1 className="text-xl sm:text-2xl font-semibold whitespace-nowrap" style={{fontFamily: "Silkscreen"}}>qBittorrent</h1>
           </div>
           
           {/* Transfer stats */}
           {transferInfo && (
-            <div className="flex items-center gap-3 text-xs">
-              <div className="hidden sm:flex items-center gap-1">
+            <div className="flex flex-col items-end text-[10px] leading-tight whitespace-nowrap sm:flex-row sm:items-center sm:gap-3 sm:text-xs">
+              <div className="flex items-center gap-1">
                 <span className="text-green-500">↓</span>
                 <span>{(transferInfo.dl_info_speed / 1024).toFixed(1)} KB/s</span>
               </div>
-              <div className="hidden sm:flex items-center gap-1">
+              <div className="flex items-center gap-1">
                 <span className="text-blue-500">↑</span>
                 <span>{(transferInfo.up_info_speed / 1024).toFixed(1)} KB/s</span>
               </div>
