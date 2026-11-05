@@ -36,6 +36,8 @@ qBittorrent's Web API cannot serve the content of a torrent, so downloads go thr
 
 A download button then appears next to each completed file in the torrent dialog's Details and Content tabs. Downloads use the file server's own login, if it has one. These settings are saved per browser.
 
+Keep the file server on the same host as the WebUI; the URL can then be relative, e.g. `../files/`. Browsers ignore a link's download attribute across hosts, so files such as images can open in the browser instead of saving, unless the file server sends a `Content-Disposition: attachment` header.
+
 ## Development
 
 During development the Vite dev server proxies API requests under `/api` to the qBittorrent backend.
