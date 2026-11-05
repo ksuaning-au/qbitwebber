@@ -1,15 +1,18 @@
-import { useState } from 'react'
+import { lazy, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from '@/components/ui/sonner'
 import { AuthProvider, useAuth } from '@/hooks/useAuth'
 import { LoginForm } from '@/components/LoginForm'
 import { Layout } from '@/components/Layout'
 import { TorrentsView } from '@/components/torrents/TorrentsView'
-import { AddTorrentView } from '@/components/torrents/AddTorrentView'
-import { RSSView } from '@/components/rss/RSSView'
-import { SearchView } from '@/components/search/SearchView'
-import { LogsView } from '@/components/logs/LogsView'
-import { SettingsView } from '@/components/settings/SettingsView'
+import { PageBoundary } from '@/components/PageBoundary'
+
+// Torrents opens first, so it stays in the main script and the other pages load when opened.
+const AddTorrentView = lazy(() => import('@/components/torrents/AddTorrentView').then(m => ({ default: m.AddTorrentView })))
+const RSSView = lazy(() => import('@/components/rss/RSSView').then(m => ({ default: m.RSSView })))
+const SearchView = lazy(() => import('@/components/search/SearchView').then(m => ({ default: m.SearchView })))
+const LogsView = lazy(() => import('@/components/logs/LogsView').then(m => ({ default: m.LogsView })))
+const SettingsView = lazy(() => import('@/components/settings/SettingsView').then(m => ({ default: m.SettingsView })))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,12 +43,14 @@ function AppContent() {
 
   return (
     <Layout activeTab={activeTab} onTabChange={setActiveTab}>
-      {activeTab === 'torrents' && <TorrentsView />}
-      {activeTab === 'add' && <AddTorrentView />}
-      {activeTab === 'rss' && <RSSView />}
-      {activeTab === 'search' && <SearchView />}
-      {activeTab === 'logs' && <LogsView />}
-      {activeTab === 'settings' && <SettingsView />}
+      <PageBoundary key={activeTab}>
+        {activeTab === 'torrents' && <TorrentsView />}
+        {activeTab === 'add' && <AddTorrentView />}
+        {activeTab === 'rss' && <RSSView />}
+        {activeTab === 'search' && <SearchView />}
+        {activeTab === 'logs' && <LogsView />}
+        {activeTab === 'settings' && <SettingsView />}
+      </PageBoundary>
     </Layout>
   )
 }

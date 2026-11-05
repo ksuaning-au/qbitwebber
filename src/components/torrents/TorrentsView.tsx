@@ -1,4 +1,4 @@
-import { useState, useMemo, type MouseEvent } from 'react'
+import { lazy, useState, useMemo, type MouseEvent } from 'react'
 import {
   Play,
   Pause,
@@ -41,12 +41,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { TorrentFilesDialog } from './TorrentFilesDialog'
 import { formatSize } from '@/lib/utils'
 import { filterTorrents, STATUS_FILTERS, type StatusFilter } from '@/lib/torrentFilters'
 import { Input } from '@/components/ui/input'
 import { useCategories, useTags, useTorrents, usePauseTorrents, useResumeTorrents, useDeleteTorrents } from '@/hooks/useApi'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { PageBoundary } from '@/components/PageBoundary'
 import type { Torrent } from '@/types'
+
+const TorrentFilesDialog = lazy(() => import('./TorrentFilesDialog').then(m => ({ default: m.TorrentFilesDialog })))
 
 interface PendingDelete {
   hashes: string[]
@@ -111,6 +114,8 @@ type SortField = 'name' | 'size' | 'progress' | 'dlspeed' | 'upspeed' | 'eta' | 
 type SortDirection = 'asc' | 'desc'
 
 const PAGE_SIZE = 20
+// Matches --breakpoint-md in index.css.
+const DESKTOP_QUERY = '(min-width: 1200px)'
 
 const sortLabels: Record<SortField, string> = {
   name: 'Name',
@@ -158,6 +163,7 @@ export function TorrentsView() {
   const [tagFilter, setTagFilter] = useState('')
   const { data: categories } = useCategories()
   const { data: tags } = useTags()
+  const isDesktop = useMediaQuery(DESKTOP_QUERY)
   const [filesDialogHash, setFilesDialogHash] = useState<string | null>(null)
   const [filesDialogTab, setFilesDialogTab] = useState<'details' | 'content'>('content')
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
@@ -209,9 +215,11 @@ export function TorrentsView() {
   }, [filteredTorrents, sortField, sortDirection])
 
   const totalPages = Math.ceil(sortedTorrents.length / PAGE_SIZE)
+  // The list can shrink while a later page is open, for example after a delete.
+  const page = Math.min(currentPage, Math.max(totalPages, 1))
   const paginatedTorrents = sortedTorrents.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE
   )
 
   const handleSelect = (hash: string, checked: boolean) => {
@@ -415,248 +423,249 @@ export function TorrentsView() {
         <div className="text-center py-4 text-muted-foreground">No torrents match these filters</div>
       )}
 
-      {/* Desktop Table */}
-      <div className="hidden md:block">
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[40px]">
-                      <Checkbox
-                        aria-label="Select all"
-                        checked={selected.size === sortedTorrents.length && sortedTorrents.length > 0}
-                        onCheckedChange={handleSelectAll}
-                      />
-                    </TableHead>
-                    <TableHead>
-                      <SortButton field="name" currentField={sortField} direction={sortDirection} onClick={() => handleSort('name')}>
-                        Name
-                      </SortButton>
-                    </TableHead>
-                    <TableHead className="w-[100px]">
-                      <SortButton field="state" currentField={sortField} direction={sortDirection} onClick={() => handleSort('state')}>
-                        Status
-                      </SortButton>
-                    </TableHead>
-                    <TableHead className="w-[120px]">
-                      <SortButton field="progress" currentField={sortField} direction={sortDirection} onClick={() => handleSort('progress')}>
-                        Progress
-                      </SortButton>
-                    </TableHead>
-                    <TableHead className="w-[80px]">
-                      <SortButton field="size" currentField={sortField} direction={sortDirection} onClick={() => handleSort('size')}>
-                        Size
-                      </SortButton>
-                    </TableHead>
-                    <TableHead className="w-[80px]">
-                      <SortButton field="dlspeed" currentField={sortField} direction={sortDirection} onClick={() => handleSort('dlspeed')}>
-                        Download
-                      </SortButton>
-                    </TableHead>
-                    <TableHead className="w-[80px]">
-                      <SortButton field="upspeed" currentField={sortField} direction={sortDirection} onClick={() => handleSort('upspeed')}>
-                        Upload
-                      </SortButton>
-                    </TableHead>
-                    <TableHead className="w-[60px]">
-                      <SortButton field="eta" currentField={sortField} direction={sortDirection} onClick={() => handleSort('eta')}>
-                        ETA
-                      </SortButton>
-                    </TableHead>
-                    <TableHead className="w-[60px]">
-                      <SortButton field="ratio" currentField={sortField} direction={sortDirection} onClick={() => handleSort('ratio')}>
-                        Ratio
-                      </SortButton>
-                    </TableHead>
-                    <TableHead className="w-[80px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedTorrents.map((torrent) => {
-                    const isActive = !isStoppedState(torrent.state)
-                    return (
-                      <TableRow
-                        key={torrent.hash}
-                        className={(selected.has(torrent.hash) ? 'bg-muted ' : '') + 'cursor-pointer'}
-                        onDoubleClick={(e) => handleTorrentDoubleClick(e, torrent)}
-                      >
-                        <TableCell>
-                          <Checkbox
-                            aria-label={`Select ${torrent.name}`}
-                            checked={selected.has(torrent.hash)}
-                            onCheckedChange={(checked) => handleSelect(torrent.hash, !!checked)}
-                          />
-                        </TableCell>
-                        <TableCell className="text-xs truncate max-w-[300px]">
-                          {torrent.name}
-                        </TableCell>
-                        <TableCell>
-                          <span className={`text-xs ${getStateColor(torrent.state, torrent.completion_on)}`}>
-                            {getStateLabel(torrent.state, torrent.completion_on)}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="w-16 h-1.5 bg-secondary rounded-full overflow-hidden">
-                              <div className="h-full bg-primary" style={{ width: `${torrent.progress * 100}%` }} />
+      {/* Only the layout on screen is built, so refreshes don't render every row twice. */}
+      {isDesktop ? (
+        <div>
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[40px]">
+                        <Checkbox
+                          aria-label="Select all"
+                          checked={selected.size === sortedTorrents.length && sortedTorrents.length > 0}
+                          onCheckedChange={handleSelectAll}
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <SortButton field="name" currentField={sortField} direction={sortDirection} onClick={() => handleSort('name')}>
+                          Name
+                        </SortButton>
+                      </TableHead>
+                      <TableHead className="w-[100px]">
+                        <SortButton field="state" currentField={sortField} direction={sortDirection} onClick={() => handleSort('state')}>
+                          Status
+                        </SortButton>
+                      </TableHead>
+                      <TableHead className="w-[120px]">
+                        <SortButton field="progress" currentField={sortField} direction={sortDirection} onClick={() => handleSort('progress')}>
+                          Progress
+                        </SortButton>
+                      </TableHead>
+                      <TableHead className="w-[80px]">
+                        <SortButton field="size" currentField={sortField} direction={sortDirection} onClick={() => handleSort('size')}>
+                          Size
+                        </SortButton>
+                      </TableHead>
+                      <TableHead className="w-[80px]">
+                        <SortButton field="dlspeed" currentField={sortField} direction={sortDirection} onClick={() => handleSort('dlspeed')}>
+                          Download
+                        </SortButton>
+                      </TableHead>
+                      <TableHead className="w-[80px]">
+                        <SortButton field="upspeed" currentField={sortField} direction={sortDirection} onClick={() => handleSort('upspeed')}>
+                          Upload
+                        </SortButton>
+                      </TableHead>
+                      <TableHead className="w-[60px]">
+                        <SortButton field="eta" currentField={sortField} direction={sortDirection} onClick={() => handleSort('eta')}>
+                          ETA
+                        </SortButton>
+                      </TableHead>
+                      <TableHead className="w-[60px]">
+                        <SortButton field="ratio" currentField={sortField} direction={sortDirection} onClick={() => handleSort('ratio')}>
+                          Ratio
+                        </SortButton>
+                      </TableHead>
+                      <TableHead className="w-[80px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedTorrents.map((torrent) => {
+                      const isActive = !isStoppedState(torrent.state)
+                      return (
+                        <TableRow
+                          key={torrent.hash}
+                          className={(selected.has(torrent.hash) ? 'bg-muted ' : '') + 'cursor-pointer'}
+                          onDoubleClick={(e) => handleTorrentDoubleClick(e, torrent)}
+                        >
+                          <TableCell>
+                            <Checkbox
+                              aria-label={`Select ${torrent.name}`}
+                              checked={selected.has(torrent.hash)}
+                              onCheckedChange={(checked) => handleSelect(torrent.hash, !!checked)}
+                            />
+                          </TableCell>
+                          <TableCell className="text-xs truncate max-w-[300px]">
+                            {torrent.name}
+                          </TableCell>
+                          <TableCell>
+                            <span className={`text-xs ${getStateColor(torrent.state, torrent.completion_on)}`}>
+                              {getStateLabel(torrent.state, torrent.completion_on)}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 h-1.5 bg-secondary rounded-full overflow-hidden">
+                                <div className="h-full bg-primary" style={{ width: `${torrent.progress * 100}%` }} />
+                              </div>
+                              <span className="text-xs">{Math.round(torrent.progress * 100)}%</span>
                             </div>
-                            <span className="text-xs">{Math.round(torrent.progress * 100)}%</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm">{formatSize(torrent.size)}</TableCell>
-                        <TableCell className="text-sm">
-                          <div className="flex items-center gap-1">
-                            <Download className="h-3 w-3 text-blue-500" />
-                            {formatSize(torrent.dlspeed)}/s
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          <div className="flex items-center gap-1">
-                            <Upload className="h-3 w-3 text-green-500" />
-                            {formatSize(torrent.upspeed)}/s
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-sm">{formatTime(torrent.eta)}</TableCell>
-                        <TableCell className="text-sm">{torrent.ratio.toFixed(2)}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 mr-2" aria-label={isActive ? 'Pause' : 'Resume'} title={isActive ? 'Pause' : 'Resume'} onClick={() => isActive ? pauseMutation.mutate([torrent.hash]) : resumeMutation.mutate([torrent.hash])}>
-                              {isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Files" title="Files" onClick={() => openFilesDialog(torrent, 'content')}>
-                              <Files className="h-4 w-4 mr-2" />
-                            </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Delete" title="Delete">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => requestDelete([torrent], false)}>
-                                  Delete
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => requestDelete([torrent], true)} className="text-destructive">
-                                  Delete + Files
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Mobile Cards */}
-      <div className="md:hidden space-y-2">
-        {paginatedTorrents.map((torrent) => {
-          const isActive = !isStoppedState(torrent.state)
-          const isExpanded = expandedCard === torrent.hash
-          return (
-            <Card
-              key={torrent.hash}
-              className={(selected.has(torrent.hash) ? 'border-primary' : '') + " py-3 cursor-pointer"}
-              onDoubleClick={(e) => handleTorrentDoubleClick(e, torrent)}
-            >
-              <CardContent className="px-3">
-                <div className="flex items-start gap-2">
-                  <Checkbox
-                    aria-label={`Select ${torrent.name}`}
-                            checked={selected.has(torrent.hash)}
-                    onCheckedChange={(checked) => handleSelect(torrent.hash, !!checked)}
-                    className="mt-0.5 flex-shrink-0"
-                  />
-                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedCard(isExpanded ? null : torrent.hash)}>
-                    <div className="flex items-center justify-between text-[10px]">
-                      <span className={`${getStateColor(torrent.state, torrent.completion_on)} flex-shrink-0`}>
-                        {getStateLabel(torrent.state, torrent.completion_on)}
-                      </span>
-                      <span className="text-muted-foreground flex-shrink-0 ml-2">
-                        {Math.round(torrent.progress * 100)}%
-                      </span>
-                    </div>
-                    <p className="font-medium text-xs truncate max-w-[180px]">{torrent.name}</p>
-                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
-                      <span className="flex-shrink-0">{formatSize(torrent.size)}</span>
-                      <span className="flex items-center gap-0.5 flex-shrink-0">
-                        <Download className="h-2.5 w-2.5 text-blue-500" />
-                        {formatSize(torrent.dlspeed)}
-                      </span>
-                      <span className="flex items-center gap-0.5 flex-shrink-0">
-                        <Upload className="h-2.5 w-2.5 text-green-500" />
-                        {formatSize(torrent.upspeed)}
-                      </span>
-                    </div>
-
-                    {/* Expanded Details */}
-                    {isExpanded && (
-                      <div className="mt-1 pt-1 border-t space-y-1 text-[10px]">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">ETA:</span>
-                          <span>{formatTime(torrent.eta)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Ratio:</span>
-                          <span>{torrent.ratio.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Seeds:</span>
-                          <span>{torrent.num_seeds}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Peers:</span>
-                          <span>{torrent.num_leechs}</span>
-                        </div>
+                          </TableCell>
+                          <TableCell className="text-sm">{formatSize(torrent.size)}</TableCell>
+                          <TableCell className="text-sm">
+                            <div className="flex items-center gap-1">
+                              <Download className="h-3 w-3 text-blue-500" />
+                              {formatSize(torrent.dlspeed)}/s
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            <div className="flex items-center gap-1">
+                              <Upload className="h-3 w-3 text-green-500" />
+                              {formatSize(torrent.upspeed)}/s
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">{formatTime(torrent.eta)}</TableCell>
+                          <TableCell className="text-sm">{torrent.ratio.toFixed(2)}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 mr-2" aria-label={isActive ? 'Pause' : 'Resume'} title={isActive ? 'Pause' : 'Resume'} onClick={() => isActive ? pauseMutation.mutate([torrent.hash]) : resumeMutation.mutate([torrent.hash])}>
+                                {isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Files" title="Files" onClick={() => openFilesDialog(torrent, 'content')}>
+                                <Files className="h-4 w-4 mr-2" />
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Delete" title="Delete">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => requestDelete([torrent], false)}>
+                                    Delete
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => requestDelete([torrent], true)} className="text-destructive">
+                                    Delete + Files
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {paginatedTorrents.map((torrent) => {
+            const isActive = !isStoppedState(torrent.state)
+            const isExpanded = expandedCard === torrent.hash
+            return (
+              <Card
+                key={torrent.hash}
+                className={(selected.has(torrent.hash) ? 'border-primary' : '') + " py-3 cursor-pointer"}
+                onDoubleClick={(e) => handleTorrentDoubleClick(e, torrent)}
+              >
+                <CardContent className="px-3">
+                  <div className="flex items-start gap-2">
+                    <Checkbox
+                      aria-label={`Select ${torrent.name}`}
+                              checked={selected.has(torrent.hash)}
+                      onCheckedChange={(checked) => handleSelect(torrent.hash, !!checked)}
+                      className="mt-0.5 flex-shrink-0"
+                    />
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedCard(isExpanded ? null : torrent.hash)}>
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className={`${getStateColor(torrent.state, torrent.completion_on)} flex-shrink-0`}>
+                          {getStateLabel(torrent.state, torrent.completion_on)}
+                        </span>
+                        <span className="text-muted-foreground flex-shrink-0 ml-2">
+                          {Math.round(torrent.progress * 100)}%
+                        </span>
                       </div>
-                    )}
+                      <p className="font-medium text-xs truncate max-w-[180px]">{torrent.name}</p>
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                        <span className="flex-shrink-0">{formatSize(torrent.size)}</span>
+                        <span className="flex items-center gap-0.5 flex-shrink-0">
+                          <Download className="h-2.5 w-2.5 text-blue-500" />
+                          {formatSize(torrent.dlspeed)}
+                        </span>
+                        <span className="flex items-center gap-0.5 flex-shrink-0">
+                          <Upload className="h-2.5 w-2.5 text-green-500" />
+                          {formatSize(torrent.upspeed)}
+                        </span>
+                      </div>
+
+                      {/* Expanded Details */}
+                      {isExpanded && (
+                        <div className="mt-1 pt-1 border-t space-y-1 text-[10px]">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">ETA:</span>
+                            <span>{formatTime(torrent.eta)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Ratio:</span>
+                            <span>{torrent.ratio.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Seeds:</span>
+                            <span>{torrent.num_seeds}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Peers:</span>
+                            <span>{torrent.num_leechs}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0" aria-label={isExpanded ? 'Hide details' : 'Show details'} title={isExpanded ? 'Hide details' : 'Show details'} aria-expanded={isExpanded} onClick={() => setExpandedCard(isExpanded ? null : torrent.hash)}>
+                      {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    </Button>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0" aria-label={isExpanded ? 'Hide details' : 'Show details'} title={isExpanded ? 'Hide details' : 'Show details'} aria-expanded={isExpanded} onClick={() => setExpandedCard(isExpanded ? null : torrent.hash)}>
-                    {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                  </Button>
-                </div>
 
-                {/* Progress bar */}
-                <div className="mt-1 h-1 bg-secondary rounded-full overflow-hidden">
-                  <div className="h-full bg-primary transition-all" style={{ width: `${torrent.progress * 100}%` }} />
-                </div>
+                  {/* Progress bar */}
+                  <div className="mt-1 h-1 bg-secondary rounded-full overflow-hidden">
+                    <div className="h-full bg-primary transition-all" style={{ width: `${torrent.progress * 100}%` }} />
+                  </div>
 
-                {/* Action buttons - always visible on mobile */}
-                <div className="flex items-center gap-1 mt-1">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={isActive ? 'Pause' : 'Resume'} title={isActive ? 'Pause' : 'Resume'} onClick={() => isActive ? pauseMutation.mutate([torrent.hash]) : resumeMutation.mutate([torrent.hash])}>
-                    {isActive ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Files" title="Files" onClick={() => openFilesDialog(torrent, 'content')}>
-                    <Files className="h-3 w-3" />
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Delete" title="Delete">
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      <DropdownMenuItem onClick={() => requestDelete([torrent], false)}>
-                        Delete
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => requestDelete([torrent], true)} className="text-destructive">
-                        Delete + Files
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
+                  {/* Action buttons - always visible on mobile */}
+                  <div className="flex items-center gap-1 mt-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={isActive ? 'Pause' : 'Resume'} title={isActive ? 'Pause' : 'Resume'} onClick={() => isActive ? pauseMutation.mutate([torrent.hash]) : resumeMutation.mutate([torrent.hash])}>
+                      {isActive ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Files" title="Files" onClick={() => openFilesDialog(torrent, 'content')}>
+                      <Files className="h-3 w-3" />
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Delete" title="Delete">
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuItem onClick={() => requestDelete([torrent], false)}>
+                          Delete
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => requestDelete([torrent], true)} className="text-destructive">
+                          Delete + Files
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (
@@ -665,13 +674,13 @@ export function TorrentsView() {
             {sortedTorrents.length} torrents
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1}>
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(page - 1)} disabled={page === 1}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <span className="text-sm">
-              {currentPage} / {totalPages}
+              {page} / {totalPages}
             </span>
-            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage === totalPages}>
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(page + 1)} disabled={page === totalPages}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
@@ -706,12 +715,16 @@ export function TorrentsView() {
         </DialogContent>
       </Dialog>
 
-      <TorrentFilesDialog
-        torrent={filesDialogTorrent}
-        initialTab={filesDialogTab}
-        open={!!filesDialogTorrent}
-        onOpenChange={(open) => !open && setFilesDialogHash(null)}
-      />
+      {filesDialogTorrent && (
+        <PageBoundary loading={null}>
+          <TorrentFilesDialog
+            torrent={filesDialogTorrent}
+            initialTab={filesDialogTab}
+            open
+            onOpenChange={(open) => !open && setFilesDialogHash(null)}
+          />
+        </PageBoundary>
+      )}
     </div>
   )
 }

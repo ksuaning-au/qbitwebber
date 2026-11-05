@@ -13,6 +13,7 @@ import type {
   TorrentPeer
 } from '@/types'
 import type { ShareLimits } from './shareLimits'
+import { encodeTrackerUrls } from './trackers'
 
 import { demoClient } from './demoClient'
 import { flattenRSSTree, type RawRSSTree } from './rss'
@@ -276,6 +277,32 @@ class QBittorrentClient {
     await this.post('torrents/removeTags', { hashes: hashes.join('|'), tags: tags.join(',') })
   }
 
+  // `urls` holds one URL per line. A blank line starts a new tier.
+  async addTrackers(hash: string, urls: string): Promise<void> {
+    await this.post('torrents/addTrackers', { hash, urls })
+  }
+
+  // qBittorrent 5.2 names the old URL `url`, and earlier versions name it `origUrl`.
+  async editTracker(hash: string, url: string, newUrl: string): Promise<void> {
+    await this.post('torrents/editTracker', { hash, url, origUrl: url, newUrl })
+  }
+
+  async removeTrackers(hash: string, urls: string[]): Promise<void> {
+    await this.post('torrents/removeTrackers', { hash, urls: encodeTrackerUrls(urls) })
+  }
+
+  async addPeers(hashes: string[], peers: string[]): Promise<Record<string, { added: number; failed: number }>> {
+    return this.request('torrents/addPeers', {
+      method: 'POST',
+      body: new URLSearchParams({ hashes: hashes.join('|'), peers: peers.join('|') }),
+    })
+  }
+
+  // Bans apply to every torrent, not only the one the peer came from.
+  async banPeers(peers: string[]): Promise<void> {
+    await this.post('transfer/banPeers', { peers: peers.join('|') })
+  }
+
   async getTorrentTrackers(hash: string): Promise<TorrentTracker[]> {
     return this.request<TorrentTracker[]>(`torrents/trackers?hash=${hash}`)
   }
@@ -379,6 +406,22 @@ class QBittorrentClient {
 
   async searchPlugins(): Promise<{ name: string; fullName?: string; version: string; enabled: boolean }[]> {
     return this.request('search/plugins')
+  }
+
+  async installSearchPlugin(sources: string[]): Promise<void> {
+    await this.post('search/installPlugin', { sources: sources.join('|') })
+  }
+
+  async uninstallSearchPlugin(names: string[]): Promise<void> {
+    await this.post('search/uninstallPlugin', { names: names.join('|') })
+  }
+
+  async enableSearchPlugin(names: string[], enable: boolean): Promise<void> {
+    await this.post('search/enablePlugin', { names: names.join('|'), enable: String(enable) })
+  }
+
+  async updateSearchPlugins(): Promise<void> {
+    await this.post('search/updatePlugins', {})
   }
 
   async startSearch(pattern: string, plugins = 'enabled', category = 'all'): Promise<{ id: number }> {

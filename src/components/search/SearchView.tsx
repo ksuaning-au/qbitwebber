@@ -28,6 +28,7 @@ import {
 import { toast } from '@/hooks/use-toast'
 import { qbitClient } from '@/lib/api'
 import { useSearchPlugins } from '@/hooks/useApi'
+import { SearchPluginsDialog } from './SearchPluginsDialog'
 import { getSearchEngineError } from '@/lib/searchErrors'
 import type { SearchResult } from '@/types'
 
@@ -63,6 +64,9 @@ export function SearchView() {
   const [pluginChoice, setPluginChoice] = useState('enabled')
   const [category, setCategory] = useState('all')
   const { data: pluginList } = useSearchPlugins()
+  const [pluginsOpen, setPluginsOpen] = useState(false)
+  // Falls back if the chosen plugin has since been disabled or uninstalled.
+  const activePlugin = pluginList?.some(plugin => plugin.name === pluginChoice && plugin.enabled) ? pluginChoice : 'enabled'
   const [searched, setSearched] = useState(false)
   const [sortField, setSortField] = useState<SortField>('nbSeeders')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
@@ -87,14 +91,14 @@ export function SearchView() {
       const plugins = await qbitClient.searchPlugins().catch(() => null)
       if (plugins && !plugins.some(plugin => plugin.enabled)) {
         toast.error(plugins.length > 0
-          ? 'All search plugins are disabled. Enable one in qBittorrent.'
-          : 'No search plugins are installed. Add one in qBittorrent.')
+          ? 'All search plugins are disabled. Enable one under Manage plugins.'
+          : 'No search plugins are installed. Add one under Manage plugins.')
         return
       }
       const warningsBefore = await qbitClient.getLogWarnings().catch(() => null)
       const lastLogId = warningsBefore?.at(-1)?.id ?? -1
 
-      const { id } = await qbitClient.startSearch(query, pluginChoice, category)
+      const { id } = await qbitClient.startSearch(query, activePlugin, category)
 
       currentSearchIdRef.current = id
 
@@ -271,7 +275,7 @@ export function SearchView() {
             <div className="grid grid-cols-2 gap-2">
               <select
                 aria-label="Search plugin"
-                value={pluginChoice}
+                value={activePlugin}
                 onChange={(e) => setPluginChoice(e.target.value)}
                 className="border-input dark:bg-input/30 h-9 min-w-0 rounded-md border bg-transparent px-2 text-sm"
               >
@@ -289,7 +293,9 @@ export function SearchView() {
                 {SEARCH_CATEGORIES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
               </select>
             </div>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setPluginsOpen(true)}>Manage plugins</Button>
           </form>
+          <SearchPluginsDialog open={pluginsOpen} onOpenChange={setPluginsOpen} />
         </CardContent>
       </Card>
 

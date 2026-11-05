@@ -8,8 +8,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useTorrentFiles, useTorrentPeers, useTorrentTrackers, useSetFilePriority, useWebApiVersion } from '@/hooks/useApi'
+import { useTorrentFiles, useSetFilePriority, useWebApiVersion } from '@/hooks/useApi'
+import { PeersTab } from './PeersTab'
 import { TorrentActions } from './TorrentActions'
+import { TrackersTab } from './TrackersTab'
 import { PieceBar } from './PieceBar'
 import { toast } from '@/hooks/use-toast'
 import { getFileDownloadUrl, supportsFileDownload } from '@/lib/fileDownloads'
@@ -175,45 +177,6 @@ function formatDate(seconds: number | undefined): string {
   return seconds && seconds > 0 ? new Date(seconds * 1000).toLocaleString() : '-'
 }
 
-function TrackersList({ hash }: { hash: string }) {
-  const { data: trackers, isLoading } = useTorrentTrackers(hash)
-  if (isLoading) return <div className="text-center py-8 text-muted-foreground">Loading trackers...</div>
-  // qBittorrent lists DHT, PeX, and LSD here as pseudo-trackers, with ** around their names.
-  const real = (trackers ?? []).filter(tracker => !tracker.url.startsWith('**'))
-  if (real.length === 0) return <div className="text-center py-8 text-muted-foreground">No trackers</div>
-  return (
-    <ul className="divide-y text-sm">
-      {real.map(tracker => (
-        <li key={tracker.url} className="px-2 py-2">
-          <p className="break-all">{tracker.url}</p>
-          <p className="text-xs text-muted-foreground">
-            Seeds {Math.max(tracker.num_seeds ?? 0, 0)} · Peers {Math.max(tracker.num_leeches ?? tracker.num_leechers ?? 0, 0)}{tracker.msg ? ` · ${tracker.msg}` : ''}
-          </p>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-function PeersList({ hash }: { hash: string }) {
-  const { data: peers, isLoading } = useTorrentPeers(hash)
-  if (isLoading) return <div className="text-center py-8 text-muted-foreground">Loading peers...</div>
-  const entries = Object.entries(peers ?? {})
-  if (entries.length === 0) return <div className="text-center py-8 text-muted-foreground">No peers connected</div>
-  return (
-    <ul className="divide-y text-sm">
-      {entries.map(([id, peer]) => (
-        <li key={id} className="px-2 py-2">
-          <p className="break-all">{peer.ip ?? id}{peer.port ? `:${peer.port}` : ''}</p>
-          <p className="text-xs text-muted-foreground">
-            {peer.client || 'Unknown client'} · {Math.round((peer.progress ?? 0) * 100)}% · ↓ {formatSize(peer.dl_speed ?? 0)}/s · ↑ {formatSize(peer.up_speed ?? 0)}/s
-          </p>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
 interface TorrentFilesDialogProps {
   torrent: Torrent | null
   initialTab?: 'details' | 'content'
@@ -289,11 +252,12 @@ export function TorrentFilesDialog({ torrent, initialTab = 'content', open, onOp
         )}
 
         <Tabs defaultValue={initialTab} className="flex-1 min-h-0">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="content">Content</TabsTrigger>
-            <TabsTrigger value="trackers">Trackers</TabsTrigger>
-            <TabsTrigger value="peers">Peers</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="details" className="px-0.5 text-xs sm:text-sm">Details</TabsTrigger>
+            <TabsTrigger value="content" className="px-0.5 text-xs sm:text-sm">Content</TabsTrigger>
+            <TabsTrigger value="actions" className="px-0.5 text-xs sm:text-sm">Actions</TabsTrigger>
+            <TabsTrigger value="trackers" className="px-0.5 text-xs sm:text-sm">Trackers</TabsTrigger>
+            <TabsTrigger value="peers" className="px-0.5 text-xs sm:text-sm">Peers</TabsTrigger>
           </TabsList>
 
           <TabsContent value="details" className="overflow-y-auto">
@@ -325,16 +289,18 @@ export function TorrentFilesDialog({ torrent, initialTab = 'content', open, onOp
             ) : (
               <div className="text-center py-4 text-muted-foreground">No completed files yet</div>
             )}
+          </TabsContent>
 
+          <TabsContent value="actions" className="overflow-y-auto">
             <TorrentActions key={torrent.hash} torrent={torrent} />
           </TabsContent>
 
           <TabsContent value="trackers" className="overflow-y-auto">
-            <TrackersList hash={torrent.hash} />
+            <TrackersTab key={torrent.hash} hash={torrent.hash} />
           </TabsContent>
 
           <TabsContent value="peers" className="overflow-y-auto">
-            <PeersList hash={torrent.hash} />
+            <PeersTab key={torrent.hash} hash={torrent.hash} />
           </TabsContent>
 
           <TabsContent value="content" className="flex flex-col min-h-0 overflow-hidden">

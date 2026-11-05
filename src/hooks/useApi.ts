@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { qbitClient } from '@/lib/api'
 import { toast } from '@/hooks/use-toast'
+import { parseBannedPeers, removeBannedPeer } from '@/lib/bannedPeers'
 import { PIECE_DONE } from '@/lib/pieces'
 import type { RSSRule } from '@/types'
 
@@ -92,14 +93,28 @@ export function useTags() {
   })
 }
 
-export function useSearchPlugins() {
+export function useSearchPlugins(refetchInterval: number | false = false) {
   return useQuery({
     queryKey: ['search', 'plugins'],
     queryFn: () => qbitClient.searchPlugins(),
+    refetchInterval,
   })
 }
 
-// For one-off torrent actions: shows failures and refreshes the list afterward.
+// For changes to search plugins: shows failures and refreshes the list afterward.
+export function useSearchPluginAction() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ work }: { work: () => Promise<unknown>; failed: string }) => work(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['search', 'plugins'] })
+    },
+    onError: (error, { failed }) => showActionError(failed, error),
+  })
+}
+
+// For one-off torrent actions: shows failures and refreshes the list and open tabs afterward.
 export function useTorrentAction() {
   const queryClient = useQueryClient()
 
@@ -107,9 +122,35 @@ export function useTorrentAction() {
     mutationFn: ({ work }: { work: () => Promise<unknown>; failed: string }) => work(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['torrents'] })
+      queryClient.invalidateQueries({ queryKey: ['torrent'] })
+      queryClient.invalidateQueries({ queryKey: ['bannedPeers'] })
       queryClient.invalidateQueries({ queryKey: ['tags'] })
     },
     onError: (error, { failed }) => showActionError(failed, error),
+  })
+}
+
+export function useBannedPeers() {
+  return useQuery({
+    queryKey: ['bannedPeers'],
+    queryFn: () => qbitClient.getPreferences(),
+    select: (prefs) => parseBannedPeers(prefs.banned_IPs),
+  })
+}
+
+// Reads the current list first, so a ban made elsewhere since the page loaded isn't lost.
+export function useUnbanPeer() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (ip: string) => {
+      const prefs = await qbitClient.getPreferences()
+      await qbitClient.setPreferences({ banned_IPs: removeBannedPeer(prefs.banned_IPs, ip) })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bannedPeers'] })
+    },
+    onError: (error) => showActionError('Failed to unban peer', error),
   })
 }
 

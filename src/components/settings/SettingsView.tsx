@@ -16,6 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { BannedPeers } from '@/components/BannedPeers'
 import { useAppVersion } from '@/hooks/useApi'
 import { qbitClient } from '@/lib/api'
 import { toast } from 'sonner'
@@ -507,6 +508,16 @@ export function SettingsView() {
               <Button onClick={() => handleSave('connection')} disabled={saving}>
                 Save Connection Settings
               </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-3">
+            <CardHeader>
+              <CardTitle>Banned Peers</CardTitle>
+              <CardDescription>Banned addresses can't connect to any torrent</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <BannedPeers />
             </CardContent>
           </Card>
         </TabsContent>

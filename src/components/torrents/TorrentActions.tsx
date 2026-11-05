@@ -73,8 +73,7 @@ export function TorrentActions({ torrent }: { torrent: Torrent }) {
   }
 
   return (
-    <div className="mt-4 space-y-3 px-2 pb-2">
-      <div className="text-sm font-medium">Actions</div>
+    <div className="space-y-3 px-2 pb-2 pt-2">
       <div className="flex flex-wrap gap-2">
         <Button type="button" size="sm" variant="outline" disabled={action.isPending} onClick={() => run(() => qbitClient.recheckTorrents(hashes), 'Recheck started', 'Failed to start recheck')}>
           Recheck

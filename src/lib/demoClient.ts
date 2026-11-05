@@ -60,11 +60,14 @@ class DemoQBittorrentClient {
     return { webuiPort: 8080, locale: 'en' }
   }
 
+  private bannedIPs: string[] = []
+
   async getPreferences(): Promise<Record<string, unknown>> {
-    return { locale: 'en' }
+    return { locale: 'en', banned_IPs: this.bannedIPs.join('\n') }
   }
 
-  async setPreferences(_prefs: Record<string, unknown>): Promise<void> {
+  async setPreferences(prefs: Record<string, unknown>): Promise<void> {
+    if (typeof prefs.banned_IPs === 'string') this.bannedIPs = prefs.banned_IPs.split('\n').filter(Boolean)
   }
 
   async revertToDefaultWebUI(): Promise<void> {
@@ -432,6 +435,23 @@ class DemoQBittorrentClient {
   async removeRSSRule(_name: string): Promise<void> {
   }
 
+  async addTrackers(_hash: string, _urls: string): Promise<void> {
+  }
+
+  async editTracker(_hash: string, _url: string, _newUrl: string): Promise<void> {
+  }
+
+  async removeTrackers(_hash: string, _urls: string[]): Promise<void> {
+  }
+
+  async addPeers(hashes: string[], peers: string[]): Promise<Record<string, { added: number; failed: number }>> {
+    return Object.fromEntries(hashes.map(hash => [hash, { added: peers.length, failed: 0 }]))
+  }
+
+  async banPeers(peers: string[]): Promise<void> {
+    this.bannedIPs = [...new Set([...this.bannedIPs, ...peers.map(peer => peer.replace(/:\d+$/, '').replace(/^\[|\]$/g, ''))])]
+  }
+
   async getTorrentPeers(_hash: string): Promise<Record<string, TorrentPeer>> {
     return {}
   }
@@ -486,12 +506,28 @@ class DemoQBittorrentClient {
   async removeTags(_hashes: string[], _tags: string[]): Promise<void> {
   }
 
+  private plugins = [
+    { name: 'Rarbg', version: '1.0', enabled: true },
+    { name: 'The Pirate Bay', version: '2.1', enabled: true },
+    { name: '1337x', version: '1.5', enabled: false },
+  ]
+
   async searchPlugins(): Promise<{ name: string; fullName?: string; version: string; enabled: boolean }[]> {
-    return [
-        { name: 'Rarbg', version: '1.0', enabled: true },
-        { name: 'The Pirate Bay', version: '2.1', enabled: true },
-        { name: '1337x', version: '1.5', enabled: false },
-      ]
+    return this.plugins
+  }
+
+  async installSearchPlugin(_sources: string[]): Promise<void> {
+  }
+
+  async uninstallSearchPlugin(names: string[]): Promise<void> {
+    this.plugins = this.plugins.filter(plugin => !names.includes(plugin.name))
+  }
+
+  async enableSearchPlugin(names: string[], enable: boolean): Promise<void> {
+    this.plugins = this.plugins.map(plugin => (names.includes(plugin.name) ? { ...plugin, enabled: enable } : plugin))
+  }
+
+  async updateSearchPlugins(): Promise<void> {
   }
 
   async startSearch(_pattern: string, _plugins = 'enabled', _category = 'all'): Promise<{ id: number }> {
