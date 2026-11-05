@@ -180,11 +180,12 @@ function FileTree({ files, renderDownload, onPriorityChange }: FileTreeProps) {
 
 interface TorrentFilesDialogProps {
   torrent: Torrent | null
+  initialTab?: 'details' | 'content'
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-export function TorrentFilesDialog({ torrent, open, onOpenChange }: TorrentFilesDialogProps) {
+export function TorrentFilesDialog({ torrent, initialTab = 'content', open, onOpenChange }: TorrentFilesDialogProps) {
   const { data: files, isLoading } = useTorrentFiles(torrent?.hash ?? null)
   const setPriority = useSetFilePriority()
   const [selectedHash, setSelectedHash] = useState<string | null>(null)
@@ -245,7 +246,7 @@ export function TorrentFilesDialog({ torrent, open, onOpenChange }: TorrentFiles
           <p className="text-xs text-muted-foreground">{downloadIssue}</p>
         )}
 
-        <Tabs defaultValue="content" className="flex-1 min-h-0">
+        <Tabs defaultValue={initialTab} className="flex-1 min-h-0">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="content">Content</TabsTrigger>
