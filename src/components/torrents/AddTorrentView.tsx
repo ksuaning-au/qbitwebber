@@ -19,6 +19,7 @@ import {
   type TorrentMetadata,
 } from '@/lib/addTorrent'
 import { formatSize } from '@/lib/utils'
+import { TorrentCreator } from './TorrentCreator'
 
 const selectClass = 'border-input dark:bg-input/30 h-9 w-full rounded-md border bg-transparent px-2 text-sm'
 const METADATA_POLL_MS = 1500
@@ -390,6 +391,8 @@ export function AddTorrentView() {
           </form>
         </CardContent>
       </Card>
+
+      <TorrentCreator />
     </div>
   )
 }

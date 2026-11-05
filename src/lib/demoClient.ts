@@ -12,6 +12,7 @@ import type {
   TorrentPeer,
   PeerLogEntry,
   Cookie,
+  TorrentCreatorTask,
   WebSeed,
 } from '@/types'
 import type { ShareLimits } from './shareLimits'
@@ -101,6 +102,39 @@ class DemoQBittorrentClient {
   }
 
   async sendTestEmail(): Promise<void> {
+  }
+
+  async getBuildInfo(): Promise<Record<string, string | number>> {
+    return { qt: '6.8.2', libtorrent: '2.0.11.0', boost: '1.86.0', openssl: '3.4.1', zlib: '1.3.1', bitness: 64, platform: 'linux' }
+  }
+
+  async getProcessInfo(): Promise<{ launch_time?: number }> {
+    return { launch_time: Math.floor(Date.now() / 1000) - 86400 }
+  }
+
+  async shutdown(): Promise<void> {
+  }
+
+  private altSpeed = false
+
+  async toggleSpeedLimitsMode(): Promise<void> {
+    this.altSpeed = !this.altSpeed
+  }
+
+  private creatorTasks: TorrentCreatorTask[] = []
+
+  async createTorrent(params: Record<string, string>): Promise<string> {
+    const taskID = `demo-${this.creatorTasks.length + 1}`
+    this.creatorTasks.push({ taskID, sourcePath: params.sourcePath, status: 'Finished', progress: 100 })
+    return taskID
+  }
+
+  async getTorrentCreatorTasks(): Promise<TorrentCreatorTask[]> {
+    return this.creatorTasks
+  }
+
+  async deleteTorrentCreatorTask(taskID: string): Promise<void> {
+    this.creatorTasks = this.creatorTasks.filter(task => task.taskID !== taskID)
   }
 
   async revertToDefaultWebUI(): Promise<void> {
@@ -699,7 +733,7 @@ class DemoQBittorrentClient {
       rid: ++this.mainDataRid,
       full_update: true,
       torrents: Object.fromEntries(torrents.map(torrent => [torrent.hash, torrent])),
-      server_state: { ...transfer, free_space_on_disk: 512_000_000_000, alltime_dl: 4_400_000_000_000, alltime_ul: 9_100_000_000_000, global_ratio: '2.07', total_peer_connections: 41 },
+      server_state: { ...transfer, use_alt_speed_limits: this.altSpeed, free_space_on_disk: 512_000_000_000, alltime_dl: 4_400_000_000_000, alltime_ul: 9_100_000_000_000, global_ratio: '2.07', total_peer_connections: 41 },
     }
   }
 }

@@ -171,6 +171,16 @@ export interface TorrentPeer {
   country?: string
 }
 
+export interface TorrentCreatorTask {
+  taskID: string
+  sourcePath: string
+  status: 'Queued' | 'Running' | 'Finished' | 'Failed' | string
+  progress?: number
+  errorMessage?: string
+  torrentFilePath?: string
+  timeAdded?: string
+}
+
 export interface Cookie {
   name: string
   domain: string

@@ -9,8 +9,8 @@ interface FolderPickerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   start: string
-  // "dirs" picks a folder, "all" picks a file.
-  mode: 'dirs' | 'all'
+  // "dirs" picks a folder, "all" picks a file, "any" picks either.
+  mode: 'dirs' | 'all' | 'any'
   onPick: (path: string) => void
 }
 
@@ -39,7 +39,7 @@ export function FolderPicker({ open, onOpenChange, start, mode, onPick }: Folder
       try {
         const [dirs, all] = await Promise.all([
           qbitClient.getDirectoryContent(dir, 'dirs'),
-          mode === 'all' ? qbitClient.getDirectoryContent(dir, 'all') : Promise.resolve([] as string[]),
+          mode !== 'dirs' ? qbitClient.getDirectoryContent(dir, 'all') : Promise.resolve([] as string[]),
         ])
         if (cancelled) return
         const dirSet = new Set(dirs)
@@ -61,7 +61,7 @@ export function FolderPicker({ open, onOpenChange, start, mode, onPick }: Folder
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[80vh] max-w-lg flex-col overflow-hidden">
         <DialogHeader>
-          <DialogTitle>{mode === 'dirs' ? 'Choose a folder' : 'Choose a file'}</DialogTitle>
+          <DialogTitle>{mode === 'dirs' ? 'Choose a folder' : mode === 'all' ? 'Choose a file' : 'Choose a file or folder'}</DialogTitle>
           <DialogDescription>On the machine where qBittorrent runs.</DialogDescription>
         </DialogHeader>
         <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); const value = (e.currentTarget.elements.namedItem('picker-path') as HTMLInputElement).value.trim(); if (value) setDir(value) }}>
@@ -97,7 +97,7 @@ export function FolderPicker({ open, onOpenChange, start, mode, onPick }: Folder
         </div>
         <div className="flex justify-end gap-2 border-t pt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          {mode === 'dirs' && <Button onClick={() => { onPick(dir); onOpenChange(false) }}>Use this folder</Button>}
+          {mode !== 'all' && <Button onClick={() => { onPick(dir); onOpenChange(false) }}>Use this folder</Button>}
         </div>
       </DialogContent>
     </Dialog>

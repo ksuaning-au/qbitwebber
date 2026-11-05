@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn, formatSize } from '@/lib/utils'
 import { useTransferInfo } from '@/hooks/useApi'
+import { SpeedLimitToggle } from '@/components/SpeedLimitToggle'
 
 type Tab = 'torrents' | 'add' | 'rss' | 'search' | 'logs' | 'settings'
 
@@ -64,19 +65,23 @@ export function Layout({ activeTab, onTabChange, children }: LayoutProps) {
             <h1 className="text-xl sm:text-2xl font-semibold whitespace-nowrap [text-box:trim-both_cap_alphabetic]" style={{fontFamily: "Silkscreen"}}>qBittorrent</h1>
           </div>
           
-          {/* Transfer stats */}
-          {transferInfo && (
-            <div className="flex flex-col items-end text-[10px] leading-tight whitespace-nowrap sm:flex-row sm:items-center sm:gap-3 sm:text-xs">
-              <div className="flex items-center gap-1">
-                <span className="text-green-500">↓</span>
-                <span>{formatSize(transferInfo.dl_info_speed ?? 0)}/s</span>
+          <div className="flex items-center gap-1 sm:gap-3">
+            <SpeedLimitToggle />
+
+            {/* Transfer stats */}
+            {transferInfo && (
+              <div className="flex flex-col items-end text-[10px] leading-tight whitespace-nowrap sm:flex-row sm:items-center sm:gap-3 sm:text-xs">
+                <div className="flex items-center gap-1">
+                  <span className="text-green-500">↓</span>
+                  <span>{formatSize(transferInfo.dl_info_speed ?? 0)}/s</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-blue-500">↑</span>
+                  <span>{formatSize(transferInfo.up_info_speed ?? 0)}/s</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <span className="text-blue-500">↑</span>
-                <span>{formatSize(transferInfo.up_info_speed ?? 0)}/s</span>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Mobile menu */}

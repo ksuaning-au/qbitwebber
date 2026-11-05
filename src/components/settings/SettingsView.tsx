@@ -5,16 +5,19 @@ import { ConfirmAction } from '@/components/ConfirmAction'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { useAppVersion, usePreferences, useSavePreferences } from '@/hooks/useApi'
+import { useQuery } from '@tanstack/react-query'
+import { useAppVersion, usePreferences, useSavePreferences, useWebApiVersion } from '@/hooks/useApi'
+import { formatDuration } from '@/lib/format'
 import { toast } from '@/hooks/use-toast'
 import { qbitClient } from '@/lib/api'
 import { PREFERENCE_SECTIONS, getChangedPreferences, toFormValue, type PrefDef } from '@/lib/preferences'
 import { PreferenceField } from './PreferenceField'
 
+// System is the default, so it comes first.
 const themeOptions = [
+  { value: 'system', label: 'System', icon: Monitor },
   { value: 'light', label: 'Light', icon: Sun },
   { value: 'dark', label: 'Dark', icon: Moon },
-  { value: 'system', label: 'System', icon: Monitor },
 ]
 
 const SECTIONS = [{ id: 'app', title: 'App' }, ...PREFERENCE_SECTIONS.map(({ id, title }) => ({ id, title }))]
@@ -22,12 +25,32 @@ const SECTIONS = [{ id: 'app', title: 'App' }, ...PREFERENCE_SECTIONS.map(({ id,
 function AppSection() {
   const { theme, setTheme } = useTheme()
   const { data: qbittorrentVersion } = useAppVersion()
+  const { data: webApiVersion } = useWebApiVersion()
+  const { data: build } = useQuery({ queryKey: ['app', 'buildInfo'], queryFn: () => qbitClient.getBuildInfo() })
+  const { data: process } = useQuery({ queryKey: ['app', 'processInfo'], queryFn: () => qbitClient.getProcessInfo() })
   const [reverting, setReverting] = useState(false)
 
   const about: [string, string | undefined][] = [
     ['qbitwebber', `v${__APP_VERSION__}`],
     ['qBittorrent', qbittorrentVersion],
+    ['Web API', webApiVersion],
+    ['Running for', process?.launch_time ? formatDuration(Math.floor(Date.now() / 1000) - process.launch_time) : undefined],
+    ['Platform', build ? `${build.platform}, ${build.bitness}-bit` : undefined],
+    ['libtorrent', build?.libtorrent as string | undefined],
+    ['Qt', build?.qt as string | undefined],
+    ['Boost', build?.boost as string | undefined],
+    ['OpenSSL', build?.openssl as string | undefined],
+    ['zlib', build?.zlib as string | undefined],
   ]
+
+  const shutdown = async () => {
+    try {
+      await qbitClient.shutdown()
+      toast.success('qBittorrent is shutting down', { description: 'This page stops working until qBittorrent is started again.' })
+    } catch (e) {
+      toast.error("Couldn't shut down qBittorrent", { description: e instanceof Error ? e.message : undefined })
+    }
+  }
 
   const revert = async () => {
     setReverting(true)
@@ -46,7 +69,7 @@ function AppSection() {
       <Card>
         <CardHeader>
           <CardTitle>Appearance</CardTitle>
-          <CardDescription>Choose light, dark, or follow your device</CardDescription>
+          <CardDescription>Follows your device unless you choose light or dark</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -81,8 +104,8 @@ function AppSection() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Default Web UI</CardTitle>
-          <CardDescription>Switch back to qBittorrent's built-in Web UI</CardDescription>
+          <CardTitle>qBittorrent</CardTitle>
+          <CardDescription>These affect qBittorrent itself</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           <ConfirmAction
@@ -93,6 +116,14 @@ function AppSection() {
             confirmLabel="Switch"
             disabled={reverting}
             onConfirm={revert}
+          />
+          <ConfirmAction
+            buttonLabel="Shut down qBittorrent"
+            label="Shut down qBittorrent"
+            title="Shut down qBittorrent?"
+            message="All downloads and seeding stop, and this page can't start it again. You'll need to start qBittorrent on its machine, or from your provider's control panel."
+            confirmLabel="Shut down"
+            onConfirm={shutdown}
           />
         </CardContent>
       </Card>

@@ -12,7 +12,8 @@ import type {
   TorrentPeer,
   WebSeed,
   PeerLogEntry,
-  Cookie
+  Cookie,
+  TorrentCreatorTask
 } from '@/types'
 import type { ShareLimits } from './shareLimits'
 import { encodeTrackerUrls } from './trackers'
@@ -47,6 +48,11 @@ const QUEUE_ENDPOINTS: Record<QueueMove, string> = {
   up: 'increasePrio',
   down: 'decreasePrio',
   bottom: 'bottomPrio',
+}
+
+// A link rather than a call, so the browser saves the file itself.
+export function getCreatedTorrentUrl(taskID: string): string {
+  return `${API_BASE}/torrentcreator/torrentFile?taskID=${encodeURIComponent(taskID)}`
 }
 
 // A link rather than a call, so the browser saves the file itself.
@@ -212,6 +218,36 @@ class QBittorrentClient {
 
   async sendTestEmail(): Promise<void> {
     await this.request('app/sendTestEmail', { method: 'POST' })
+  }
+
+  async getBuildInfo(): Promise<Record<string, string | number>> {
+    return this.request('app/buildInfo')
+  }
+
+  async getProcessInfo(): Promise<{ launch_time?: number }> {
+    return this.request('app/processInfo')
+  }
+
+  async shutdown(): Promise<void> {
+    await this.request('app/shutdown', { method: 'POST' })
+  }
+
+  async toggleSpeedLimitsMode(): Promise<void> {
+    await this.request('transfer/toggleSpeedLimitsMode', { method: 'POST' })
+  }
+
+  // qBittorrent 5.0 and newer. Returns the new task's id.
+  async createTorrent(params: Record<string, string>): Promise<string> {
+    const result = await this.request<{ taskID?: string }>('torrentcreator/addTask', { method: 'POST', body: new URLSearchParams(params) })
+    return result.taskID ?? ''
+  }
+
+  async getTorrentCreatorTasks(): Promise<TorrentCreatorTask[]> {
+    return this.request('torrentcreator/status')
+  }
+
+  async deleteTorrentCreatorTask(taskID: string): Promise<void> {
+    await this.post('torrentcreator/deleteTask', { taskID })
   }
 
   async revertToDefaultWebUI(): Promise<void> {

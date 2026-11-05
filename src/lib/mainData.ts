@@ -25,6 +25,7 @@ export interface ServerState {
   average_time_queue?: number
   total_queued_size?: number
   queueing?: boolean
+  use_alt_speed_limits?: boolean
   [key: string]: unknown
 }
 
