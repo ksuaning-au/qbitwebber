@@ -591,7 +591,7 @@ export function TorrentsView() {
                           {Math.round(torrent.progress * 100)}%
                         </span>
                       </div>
-                      <p className="font-medium text-xs truncate max-w-[180px]">{torrent.name}</p>
+                      <p className="font-medium text-xs break-words [overflow-wrap:anywhere]">{torrent.name}</p>
                       <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
                         <span className="flex-shrink-0">{formatSize(torrent.size)}</span>
                         <span className="flex items-center gap-0.5 flex-shrink-0">

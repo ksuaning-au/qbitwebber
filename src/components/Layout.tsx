@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { 
   Download, 
   Server, 
@@ -23,6 +23,13 @@ interface LayoutProps {
 
 export function Layout({ activeTab, onTabChange, children }: LayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const scrollerRef = useRef<HTMLDivElement>(null)
+
+  // Each page opens at its top instead of where the last one was scrolled to.
+  useEffect(() => {
+    scrollerRef.current?.scrollTo(0, 0)
+    window.scrollTo(0, 0)
+  }, [activeTab])
   const { data: transferInfo } = useTransferInfo()
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'torrents', label: 'Torrents', icon: <Download className="h-5 w-5" /> },
@@ -34,7 +41,10 @@ export function Layout({ activeTab, onTabChange, children }: LayoutProps) {
   ]
 
   return (
-    <div className="min-h-screen bg-background">
+    // On phones the page scrolls inside this box rather than the window. When the window scrolls,
+    // iPhone Safari hides its toolbar, and the next tap near the bottom edge brings the toolbar
+    // back instead of reaching the tab bar.
+    <div ref={scrollerRef} className="min-h-screen bg-background max-md:fixed max-md:inset-0 max-md:overflow-y-auto max-md:overscroll-y-contain">
       {/* Header */}
       <header className="sticky top-0 z-40 border-b pt-[env(safe-area-inset-top)] bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-14 items-center justify-between pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
@@ -50,7 +60,8 @@ export function Layout({ activeTab, onTabChange, children }: LayoutProps) {
             >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
-            <h1 className="text-xl sm:text-2xl font-semibold whitespace-nowrap" style={{fontFamily: "Silkscreen"}}>qBittorrent</h1>
+            {/* Trimmed to the capital letters, so the title centers on them like the icons beside it. */}
+            <h1 className="text-xl sm:text-2xl font-semibold whitespace-nowrap [text-box:trim-both_cap_alphabetic]" style={{fontFamily: "Silkscreen"}}>qBittorrent</h1>
           </div>
           
           {/* Transfer stats */}
