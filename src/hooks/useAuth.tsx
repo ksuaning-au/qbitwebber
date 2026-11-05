@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { qbitClient } from '@/lib/api'
 
 interface AuthContextType {
@@ -16,53 +16,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('qbit_user')
-    const savedPass = localStorage.getItem('qbit_pass')
-    
-    if (savedUser && savedPass) {
-      qbitClient.setCredentials(savedUser, savedPass)
-      qbitClient.login()
-        .then((success) => {
-          setIsAuthenticated(success)
-          if (!success) {
-            localStorage.removeItem('qbit_pass')
-          }
-        })
-        .finally(() => setIsLoading(false))
-    } else {
-      setIsLoading(false)
-    }
+    // Return to the login screen when the session expires.
+    qbitClient.onUnauthorized(() => setIsAuthenticated(false))
+
+    // Reuse an existing qBittorrent session (HttpOnly cookie) instead of
+    // re-sending stored credentials.
+    qbitClient.checkSession()
+      .then(setIsAuthenticated)
+      .finally(() => setIsLoading(false))
+
+    return () => qbitClient.onUnauthorized(null)
   }, [])
 
+  // Note: does not toggle isLoading – that would unmount the login form
+  // and swallow the error message. The form tracks its own submit state.
   const login = async (newUsername: string, password: string) => {
-    setIsLoading(true)
-    try {
-      qbitClient.setCredentials(newUsername, password)
-      const success = await qbitClient.login()
-      if (success) {
-        localStorage.setItem('qbit_pass', password)
-        setIsAuthenticated(true)
-      } else {
-        throw new Error('Login failed')
-      }
-    } finally {
-      setIsLoading(false)
+    qbitClient.setCredentials(newUsername, password)
+    const success = await qbitClient.login()
+    if (!success) {
+      throw new Error('Login failed – check username and password')
     }
+    setIsAuthenticated(true)
   }
 
   const logout = async () => {
-    await qbitClient.logout()
-    localStorage.removeItem('qbit_pass')
-    setIsAuthenticated(false)
+    try {
+      await qbitClient.logout()
+    } finally {
+      setIsAuthenticated(false)
+    }
   }
 
   return (
-    <AuthContext.Provider value={{ 
-      isAuthenticated, 
-      isLoading, 
+    <AuthContext.Provider value={{
+      isAuthenticated,
+      isLoading,
       username: qbitClient.getUsername(),
-      login, 
-      logout 
+      login,
+      logout
     }}>
       {children}
     </AuthContext.Provider>

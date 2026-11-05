@@ -9,16 +9,20 @@ export function LoginForm() {
   const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const { login, isLoading } = useAuth()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const { login } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setIsSubmitting(true)
 
     try {
       await login(username, password)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -53,8 +57,8 @@ export function LoginForm() {
             {error && (
               <p className="text-sm text-destructive">{error}</p>
             )}
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Connecting...' : 'Connect'}
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? 'Connecting...' : 'Connect'}
             </Button>
           </form>
         </CardContent>

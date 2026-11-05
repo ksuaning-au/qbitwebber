@@ -4,6 +4,8 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
 export default defineConfig({
+  // Relative asset paths so the build works under a reverse-proxy sub-path
+  base: './',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

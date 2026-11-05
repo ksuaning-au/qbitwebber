@@ -21,6 +21,12 @@ Built with React, Vite, and TypeScript.
 
 Download the zip of this repository (or clone it) and then configure qbittorrent custom web UI path to the release directory.
 
+The `release` directory must contain the `public` folder (with `index.html` directly inside it). Point qBittorrent to the `release` directory itself, not to `release/public`.
+
+Works with qBittorrent 5.x (including 5.2+) and when qBittorrent is served from a sub-path behind a reverse proxy (e.g. `https://example.com/qbittorrent/`) – open the URL with the trailing slash.
+
+Your password is never stored by the web UI; the session is kept via qBittorrent's own HttpOnly session cookie.
+
 ## Development
 
 During development the Vite dev server proxies API requests under `/api` to the qBittorrent backend.

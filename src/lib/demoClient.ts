@@ -26,6 +26,14 @@ class DemoQBittorrentClient {
     return true
   }
 
+  onUnauthorized(_handler: (() => void) | null) {
+    // demo mode never expires
+  }
+
+  async checkSession(): Promise<boolean> {
+    return this.isLoggedIn
+  }
+
   async login(): Promise<boolean> {
     this.isLoggedIn = true
     return true

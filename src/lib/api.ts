@@ -13,23 +13,49 @@ import type {
 
 import { demoClient } from './demoClient'
 
-const DEFAULT_USER = localStorage.getItem('qbit_user') || 'admin'
+// All API paths are relative (no leading slash) so the UI also works when
+// qBittorrent is served from a sub-path behind a reverse proxy,
+// e.g. https://example.com/qbittorrent/
+const API_BASE = 'api/v2'
+
+// Only the username is remembered (for display / convenience).
+// The password is never persisted; authentication relies on the
+// HttpOnly session cookie that qBittorrent sets on login.
+const USERNAME_KEY = 'qbit_user'
+const LEGACY_PASSWORD_KEY = 'qbit_pass'
+
+function readStoredUsername(): string {
+  try {
+    return localStorage.getItem(USERNAME_KEY) || 'admin'
+  } catch {
+    return 'admin'
+  }
+}
 
 class QBittorrentClient {
   private username: string
-  private password: string
-  private sid: string | null = null
+  private password = ''
+  private authenticated = false
+  private unauthorizedHandler: (() => void) | null = null
 
-  constructor(username?: string, password?: string) {
-    this.username = username || DEFAULT_USER
-    this.password = password || ''
+  constructor() {
+    this.username = readStoredUsername()
+    // Remove plaintext passwords stored by earlier versions.
+    try {
+      localStorage.removeItem(LEGACY_PASSWORD_KEY)
+    } catch {
+      // storage unavailable – nothing to clean up
+    }
   }
 
   setCredentials(username: string, password: string) {
     this.username = username
     this.password = password
-    localStorage.setItem('qbit_user', username)
-    this.sid = null
+    try {
+      localStorage.setItem(USERNAME_KEY, username)
+    } catch {
+      // storage unavailable – username is kept in memory only
+    }
   }
 
   getUsername() {
@@ -37,30 +63,26 @@ class QBittorrentClient {
   }
 
   isConfigured(): boolean {
-    return !!this.username && !!this.password
+    return this.authenticated
+  }
+
+  /** Called whenever the backend rejects a request because the session expired. */
+  onUnauthorized(handler: (() => void) | null) {
+    this.unauthorizedHandler = handler
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = endpoint
-
-    const headers: Record<string, string> = {
-      ...(options.headers as Record<string, string>),
-    }
-
-    if (this.sid) {
-      headers['Cookie'] = `SID=${this.sid}`
-    }
-
-    const response = await fetch(url, {
+    const response = await fetch(`${API_BASE}/${endpoint}`, {
+      credentials: 'same-origin',
       ...options,
-      headers,
     })
 
     const responseText = await response.text()
-    console.log('API Response:', response.status, responseText)
 
     if (!response.ok) {
       if (response.status === 403 || response.status === 401) {
+        this.authenticated = false
+        this.unauthorizedHandler?.()
         throw new Error('Authentication required')
       }
       throw new Error(`Request failed: ${response.status} - ${responseText}`)
@@ -73,49 +95,63 @@ class QBittorrentClient {
     }
   }
 
+  /** Returns true if the browser already holds a valid qBittorrent session. */
+  async checkSession(): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_BASE}/app/version`, { credentials: 'same-origin' })
+      this.authenticated = response.ok
+    } catch {
+      this.authenticated = false
+    }
+    return this.authenticated
+  }
+
   async login(): Promise<boolean> {
     const formData = new URLSearchParams()
     formData.append('username', this.username)
     formData.append('password', this.password)
+    // Do not keep the password in memory longer than needed.
+    this.password = ''
 
-    const response = await fetch(`/api/v2/auth/login`, {
+    const response = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       body: formData,
+      credentials: 'same-origin',
     })
 
-    const setCookie = response.headers.get('set-cookie')
-    if (setCookie) {
-      const match = setCookie.match(/SID=([^;]+)/)
-      if (match) {
-        this.sid = match[1]
-        return true
-      }
+    // qBittorrent >= 5.2: success is HTTP 204 with an empty body.
+    // qBittorrent <  5.2: success is HTTP 200 "Ok.", failure is HTTP 200 "Fails.".
+    if (response.status === 204) {
+      this.authenticated = true
+    } else {
+      const text = (await response.text()).trim()
+      this.authenticated = response.ok && text === 'Ok.'
     }
-
-    return response.ok
+    return this.authenticated
   }
 
   async logout(): Promise<void> {
-    this.sid = null
-    await this.request('/api/v2/auth/logout')
+    this.authenticated = false
+    // qBittorrent 5.x only accepts POST for auth/logout.
+    await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'same-origin' }).catch(() => {})
   }
 
   async getAppVersion(): Promise<string> {
-    return this.request<string>('/api/v2/app/version')
+    return this.request<string>('app/version')
   }
 
   async getAppConfig(): Promise<AppConfig> {
-    return this.request<AppConfig>('/api/v2/app/config')
+    return this.request<AppConfig>('app/config')
   }
 
   async getPreferences(): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('/api/v2/app/preferences')
+    return this.request<Record<string, unknown>>('app/preferences')
   }
 
   async setPreferences(prefs: Record<string, unknown>): Promise<void> {
     const body = new URLSearchParams()
     body.append('json', JSON.stringify(prefs))
-    await this.request('/api/v2/app/setPreferences', {
+    await this.request('app/setPreferences', {
       method: 'POST',
       body,
     })
@@ -126,7 +162,7 @@ class QBittorrentClient {
   }
 
   async getTransferInfo(): Promise<TransferInfo> {
-    return this.request<TransferInfo>('/api/v2/transfer/info')
+    return this.request<TransferInfo>('transfer/info')
   }
 
   async getTorrents(filter?: string, category?: string): Promise<Torrent[]> {
@@ -135,16 +171,16 @@ class QBittorrentClient {
     if (category) params.set('category', category)
 
     const query = params.toString()
-    const url = query ? `/api/v2/torrents/info?${query}` : '/api/v2/torrents/info'
+    const url = query ? `torrents/info?${query}` : 'torrents/info'
     return this.request<Torrent[]>(url)
   }
 
   async getTorrentProperties(hash: string): Promise<Torrent> {
-    return this.request<Torrent>(`/api/v2/torrents/properties?hash=${hash}`)
+    return this.request<Torrent>(`torrents/properties?hash=${hash}`)
   }
 
   async getTorrentFiles(hash: string): Promise<TorrentFile[]> {
-    return this.request<TorrentFile[]>(`/api/v2/torrents/files?hash=${hash}`)
+    return this.request<TorrentFile[]>(`torrents/files?hash=${hash}`)
   }
 
   async setFilePriority(hash: string, id: string, priority: number): Promise<void> {
@@ -153,14 +189,14 @@ class QBittorrentClient {
     formData.append('id', id)
     formData.append('priority', priority.toString())
 
-    await this.request('/api/v2/torrents/filePrio', {
+    await this.request('torrents/filePrio', {
       method: 'POST',
       body: formData,
     })
   }
 
   async getTorrentTrackers(hash: string): Promise<TorrentTracker[]> {
-    return this.request<TorrentTracker[]>(`/api/v2/torrents/trackers?hash=${hash}`)
+    return this.request<TorrentTracker[]>(`torrents/trackers?hash=${hash}`)
   }
 
   async addTorrentUrl(url: string, options?: { savePath?: string; category?: string }): Promise<void> {
@@ -169,7 +205,7 @@ class QBittorrentClient {
     if (options?.savePath) formData.append('savepath', options.savePath)
     if (options?.category) formData.append('category', options.category)
 
-    await this.request('/api/v2/torrents/add', {
+    await this.request('torrents/add', {
       method: 'POST',
       body: formData,
     })
@@ -181,7 +217,7 @@ class QBittorrentClient {
     if (options?.savePath) formData.append('savepath', options.savePath)
     if (options?.category) formData.append('category', options.category)
 
-    await this.request('/api/v2/torrents/add', {
+    await this.request('torrents/add', {
       method: 'POST',
       body: formData,
     })
@@ -192,7 +228,7 @@ class QBittorrentClient {
     formData.append('hashes', hashes.join('|'))
     formData.append('deleteFiles', deleteFiles.toString())
 
-    await this.request('/api/v2/torrents/delete', {
+    await this.request('torrents/delete', {
       method: 'POST',
       body: formData,
     })
@@ -202,7 +238,7 @@ class QBittorrentClient {
     const formData = new URLSearchParams()
     formData.append('hashes', hashes.join('|'))
 
-    await this.request('/api/v2/torrents/stop', {
+    await this.request('torrents/stop', {
       method: 'POST',
       body: formData,
     })
@@ -212,25 +248,25 @@ class QBittorrentClient {
     const formData = new URLSearchParams()
     formData.append('hashes', hashes.join('|'))
 
-    await this.request('/api/v2/torrents/start', {
+    await this.request('torrents/start', {
       method: 'POST',
       body: formData,
     })
   }
 
   async getRSSFeeds(): Promise<{ feeds: RSSFeed[] }> {
-    return this.request('/api/v2/rss/feeds')
+    return this.request('rss/feeds')
   }
 
   async getRSSItems(feedUid: string): Promise<{ articles: RSSItem[] }> {
-    return this.request(`/api/v2/rss/items?uid=${feedUid}`)
+    return this.request(`rss/items?uid=${feedUid}`)
   }
 
   async addRSSFeed(url: string): Promise<void> {
     const formData = new URLSearchParams()
     formData.append('url', url)
 
-    await this.request('/api/v2/rss/addFeed', {
+    await this.request('rss/addFeed', {
       method: 'POST',
       body: formData,
     })
@@ -240,7 +276,7 @@ class QBittorrentClient {
     const formData = new URLSearchParams()
     formData.append('uid', uid)
 
-    await this.request('/api/v2/rss/removeFeed', {
+    await this.request('rss/removeFeed', {
       method: 'POST',
       body: formData,
     })
@@ -251,24 +287,24 @@ class QBittorrentClient {
     formData.append('uid', uid)
     if (articleId) formData.append('articleId', articleId)
 
-    await this.request('/api/v2/rss/markAsRead', {
+    await this.request('rss/markAsRead', {
       method: 'POST',
       body: formData,
     })
   }
 
   async getRSSRules(): Promise<{ rules: RSSRule[] }> {
-    return this.request('/api/v2/rss/rules')
+    return this.request('rss/rules')
   }
 
   async searchPlugins(): Promise<{ plugins: { name: string; version: string; enabled: boolean }[] }> {
-    return this.request('/api/v2/search/plugins')
+    return this.request('search/plugins')
   }
 
   async startSearch(pattern: string): Promise<{ id: number }> {
     const body = `pattern=${encodeURIComponent(pattern).replace(/%20/g, '+')}&plugins=all&category=all`
 
-    return this.request('/api/v2/search/start', {
+    return this.request('search/start', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -279,7 +315,7 @@ class QBittorrentClient {
 
   async stopSearch(id: number): Promise<void> {
     const body = `id=${id}`
-    await this.request('/api/v2/search/stop', {
+    await this.request('search/stop', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -289,11 +325,11 @@ class QBittorrentClient {
   }
 
   async getSearchResults(id: number): Promise<{ results: SearchResult[]; status: string }> {
-    return this.request(`/api/v2/search/results?id=${id}`)
+    return this.request(`search/results?id=${id}`)
   }
 
   async getLogs(normal: boolean = true, lastId: number = -1): Promise<LogEntry[]> {
-    return this.request(`/api/v2/log/main?normal=${normal}&lastId=${lastId}`)
+    return this.request(`log/main?normal=${normal}&lastId=${lastId}`)
   }
 }
 
