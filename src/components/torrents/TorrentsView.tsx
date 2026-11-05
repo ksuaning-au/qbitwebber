@@ -159,6 +159,8 @@ export function TorrentsView() {
   const [filesDialogTab, setFilesDialogTab] = useState<'details' | 'content'>('content')
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null)
+  // Separate from pendingDelete so the text stays in place while the prompt fades out.
+  const [deletePromptOpen, setDeletePromptOpen] = useState(false)
 
   const sortedTorrents = useMemo(() => {
     if (!torrents) return []
@@ -240,6 +242,7 @@ export function TorrentsView() {
 
   const requestDelete = (targets: Torrent[], deleteFiles: boolean) => {
     setPendingDelete({ hashes: targets.map(t => t.hash), names: targets.map(t => t.name), deleteFiles })
+    setDeletePromptOpen(true)
   }
 
   const requestDeleteSelected = (deleteFiles: boolean) => {
@@ -251,7 +254,7 @@ export function TorrentsView() {
     const { hashes, deleteFiles } = pendingDelete
     deleteMutation.mutate({ hashes, deleteFiles })
     setSelected(prev => new Set([...prev].filter(hash => !hashes.includes(hash))))
-    setPendingDelete(null)
+    setDeletePromptOpen(false)
   }
 
   const openFilesDialog = (torrent: Torrent, tab: 'details' | 'content') => {
@@ -583,7 +586,7 @@ export function TorrentsView() {
         </div>
       )}
 
-      <Dialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
+      <Dialog open={deletePromptOpen} onOpenChange={setDeletePromptOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -603,7 +606,7 @@ export function TorrentsView() {
             ))}
           </ul>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPendingDelete(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setDeletePromptOpen(false)}>Cancel</Button>
             <Button variant="destructive" onClick={confirmDelete}>
               {pendingDelete?.deleteFiles ? 'Delete + Files' : 'Delete'}
             </Button>
