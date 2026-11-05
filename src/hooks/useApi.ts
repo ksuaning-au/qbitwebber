@@ -9,6 +9,14 @@ export function useAppVersion() {
   })
 }
 
+export function useWebApiVersion() {
+  return useQuery({
+    queryKey: ['app', 'webApiVersion'],
+    queryFn: () => qbitClient.getWebApiVersion(),
+    staleTime: Infinity,
+  })
+}
+
 export function useTransferInfo() {
   return useQuery({
     queryKey: ['transfer', 'info'],

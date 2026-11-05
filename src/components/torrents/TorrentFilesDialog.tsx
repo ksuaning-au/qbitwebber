@@ -10,14 +10,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useTorrentFiles, useSetFilePriority } from '@/hooks/useApi'
+import { useTorrentFiles, useSetFilePriority, useWebApiVersion } from '@/hooks/useApi'
 import { toast } from '@/hooks/use-toast'
-import {
-  getFileDownloadIssue,
-  getFileDownloadUrl,
-  getTorrentDirectory,
-  loadFileDownloadSettings,
-} from '@/lib/fileDownloads'
+import { getFileDownloadUrl, supportsFileDownload } from '@/lib/fileDownloads'
 import type { Torrent, TorrentFile } from '@/types'
 
 function formatSize(bytes: number): string {
@@ -64,7 +59,7 @@ function FileDownloadButton({ url, fileName, reason }: FileDownloadButtonProps) 
         href={url}
         download={fileName.split('/').pop()}
         target="_blank"
-        rel="noopener noreferrer"
+        rel="noopener"
         title={`Download ${fileName}`}
         aria-label={`Download ${fileName}`}
         onClick={(e) => e.stopPropagation()}
@@ -193,8 +188,7 @@ export function TorrentFilesDialog({ torrent, open, onOpenChange }: TorrentFiles
   const { data: files, isLoading } = useTorrentFiles(torrent?.hash ?? null)
   const setPriority = useSetFilePriority()
   const [selectedHash, setSelectedHash] = useState<string | null>(null)
-  // Edited in the Settings view; read on render so changes apply without a reload.
-  const downloadSettings = loadFileDownloadSettings()
+  const webApiVersion = useWebApiVersion()
 
   const handlePriorityChange = async (id: string, priority: number) => {
     if (!torrent) return
@@ -212,20 +206,19 @@ export function TorrentFilesDialog({ torrent, open, onOpenChange }: TorrentFiles
   const totalSize = files?.reduce((acc, f) => acc + f.size, 0) || 0
   const selectedSize = files?.filter(f => f.priority > 0).reduce((acc, f) => acc + f.size, 0) || 0
 
-  const downloadIssue = getFileDownloadIssue(downloadSettings, torrent)
-  const downloadIssueMessage = {
-    'not-configured': 'To download files, set up File Downloads under Settings > General.',
-    'invalid-url': 'The file server URL under Settings > General > File Downloads is not valid. It must be an http(s) URL or a relative path.',
-    'outside-directory': `Files can't be downloaded because this torrent's folder (${getTorrentDirectory(torrent)}) is not inside the directory set under Settings > General > File Downloads (${downloadSettings.rootPath}). Correct that directory, or leave it empty if the file server URL points directly at this folder.`,
-  }
-  const downloadIssueText = downloadIssue && downloadIssueMessage[downloadIssue]
+  const canDownload = !!webApiVersion.data && supportsFileDownload(webApiVersion.data)
+  const downloadIssue = webApiVersion.isError
+    ? "Couldn't check whether this qBittorrent can serve files. Reload the page to try again."
+    : webApiVersion.data && !canDownload
+      ? 'Downloading files needs qBittorrent 5.3 or newer.'
+      : null
 
   const renderDownload = (file: TorrentFile) => {
     const isComplete = file.progress >= 1
-    const url = isComplete ? getFileDownloadUrl(downloadSettings, torrent, file.name) : null
+    const url = isComplete && canDownload ? getFileDownloadUrl(torrent.hash, file.index) : null
     const reason = !isComplete
       ? 'File is not fully downloaded yet'
-      : downloadIssueText ?? "This file's path can't be turned into a download link"
+      : downloadIssue ?? 'Checking whether this qBittorrent can serve files'
     return <FileDownloadButton url={url} fileName={file.name} reason={reason} />
   }
 
@@ -248,8 +241,8 @@ export function TorrentFilesDialog({ torrent, open, onOpenChange }: TorrentFiles
           <DialogTitle className="truncate">{torrent.name}</DialogTitle>
         </DialogHeader>
 
-        {downloadIssueText && (
-          <p className="text-xs text-muted-foreground break-words">{downloadIssueText}</p>
+        {downloadIssue && (
+          <p className="text-xs text-muted-foreground">{downloadIssue}</p>
         )}
 
         <Tabs defaultValue="content" className="flex-1 min-h-0">

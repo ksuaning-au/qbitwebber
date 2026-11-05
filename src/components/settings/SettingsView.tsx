@@ -19,11 +19,6 @@ import {
 import { useAuth } from '@/hooks/useAuth'
 import { qbitClient } from '@/lib/api'
 import { toast } from 'sonner'
-import {
-  loadFileDownloadSettings,
-  parseBaseUrl,
-  saveFileDownloadSettings,
-} from '@/lib/fileDownloads'
 
 interface Preferences {
   locale: string
@@ -83,7 +78,6 @@ export function SettingsView() {
   const [saving, setSaving] = useState(false)
   const [revertDialogOpen, setRevertDialogOpen] = useState(false)
   const [reverting, setReverting] = useState(false)
-  const [fileDownloads, setFileDownloads] = useState(loadFileDownloadSettings)
 
   useEffect(() => {
     loadPreferences()
@@ -153,22 +147,6 @@ export function SettingsView() {
       toast.error('Failed to save settings')
     } finally {
       setSaving(false)
-    }
-  }
-
-  const handleSaveFileDownloads = () => {
-    if (fileDownloads.baseUrl.trim() && !parseBaseUrl(fileDownloads.baseUrl)) {
-      toast.error('File server URL must be an http(s) URL or a relative path')
-      return
-    }
-    try {
-      saveFileDownloadSettings({
-        baseUrl: fileDownloads.baseUrl.trim(),
-        rootPath: fileDownloads.rootPath.trim(),
-      })
-      toast.success('File download settings saved')
-    } catch {
-      toast.error('Failed to save file download settings')
     }
   }
 
@@ -278,40 +256,6 @@ export function SettingsView() {
               <Button onClick={() => handleSave('general')} disabled={saving}>
                 Save General Settings
               </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="mt-3">
-            <CardHeader>
-              <CardTitle>File Downloads</CardTitle>
-              <CardDescription>
-                qBittorrent cannot serve torrent files itself. To download them from the torrent dialog,
-                point these at an HTTP file server that exposes your download directory. Saved in this browser only.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="file_server_url">File server URL</Label>
-                <Input
-                  id="file_server_url"
-                  value={fileDownloads.baseUrl}
-                  onChange={(e) => setFileDownloads(prev => ({ ...prev, baseUrl: e.target.value }))}
-                  placeholder="https://example.com/files/"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="file_server_root">Directory this URL points to</Label>
-                <Input
-                  id="file_server_root"
-                  value={fileDownloads.rootPath}
-                  onChange={(e) => setFileDownloads(prev => ({ ...prev, rootPath: e.target.value }))}
-                  placeholder="/home/user/downloads"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Path on the server. Leave empty if the URL points directly at the torrent's save path.
-                </p>
-              </div>
-              <Button onClick={handleSaveFileDownloads}>Save</Button>
             </CardContent>
           </Card>
 

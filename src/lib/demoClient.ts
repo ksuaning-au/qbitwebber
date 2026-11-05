@@ -47,6 +47,11 @@ class DemoQBittorrentClient {
     return 'v5.0.1'
   }
 
+  // Older than the file download endpoint, since the demo has no files to serve.
+  async getWebApiVersion(): Promise<string> {
+    return '2.11.2'
+  }
+
   async getAppConfig(): Promise<{ webuiPort: number; locale: string }> {
     return { webuiPort: 8080, locale: 'en' }
   }

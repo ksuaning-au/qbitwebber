@@ -29,14 +29,7 @@ Your password is never stored by the web UI; the session is kept via qBittorrent
 
 ## Downloading Files
 
-qBittorrent's Web API cannot serve the content of a torrent, so downloads go through a separate HTTP file server that exposes your download directory (nginx, or the file area many seedboxes provide). Under Settings > General > File Downloads, enter:
-
-- **File server URL**: where that directory is served, e.g. `https://example.com/files/`
-- **Directory this URL points to**: the same directory's path on the server, e.g. `/home/user/downloads`
-
-A download button then appears next to each completed file in the torrent dialog's Details and Content tabs. Downloads use the file server's own login, if it has one. These settings are saved per browser.
-
-Keep the file server on the same host as the WebUI; the URL can then be relative, e.g. `../files/`. Browsers ignore a link's download attribute across hosts, so files such as images can open in the browser instead of saving, unless the file server sends a `Content-Disposition: attachment` header.
+With qBittorrent 5.3 or newer, each completed file has a download button in the torrent dialog's Details and Content tabs. qBittorrent serves the file itself, using your existing login, so there is nothing to set up. Older versions don't have this feature, so the button is disabled there. Downloads are one file at a time.
 
 ## Development
 

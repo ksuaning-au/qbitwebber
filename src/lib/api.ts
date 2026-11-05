@@ -140,6 +140,11 @@ class QBittorrentClient {
     return this.request<string>('app/version')
   }
 
+  async getWebApiVersion(): Promise<string> {
+    // String() because a two-part version such as "2.8" parses as a JSON number.
+    return String(await this.request<string | number>('app/webapiVersion'))
+  }
+
   async getAppConfig(): Promise<AppConfig> {
     return this.request<AppConfig>('app/config')
   }
