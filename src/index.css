@@ -192,7 +192,7 @@
   src: url('./assets/fonts/Silkscreen-Regular.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
-  font-display: swap; /* Helps with loading performance */
+  font-display: block; /* The title shouldn't flash in a fallback font */
 }
 
 @font-face {
