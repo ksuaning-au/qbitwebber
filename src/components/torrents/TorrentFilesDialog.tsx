@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { FolderOpen, File, CheckSquare, Square, Download, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,8 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useTorrentFiles, useSetFilePriority } from '@/hooks/useApi'
 import { toast } from '@/hooks/use-toast'
+import { getFileDownloadUrl, loadFileDownloadSettings } from '@/lib/fileDownloads'
 import type { Torrent, TorrentFile } from '@/types'
 
 function formatSize(bytes: number): string {
@@ -21,13 +23,54 @@ function formatSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
+interface FileDownloadButtonProps {
+  // null when the file is unavailable; `reason` then says why.
+  url: string | null
+  fileName: string
+  reason: string
+}
+
+function FileDownloadButton({ url, fileName, reason }: FileDownloadButtonProps) {
+  if (!url) {
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6 flex-shrink-0"
+        disabled
+        title={reason}
+        aria-label={`Download ${fileName}: ${reason}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Download className="h-3 w-3" />
+      </Button>
+    )
+  }
+
+  return (
+    <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0" asChild>
+      <a
+        href={url}
+        download={fileName.split('/').pop()}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={`Download ${fileName}`}
+        aria-label={`Download ${fileName}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Download className="h-3 w-3" />
+      </a>
+    </Button>
+  )
+}
+
 interface FileTreeProps {
   files: TorrentFile[]
-  hash: string
+  renderDownload: (file: TorrentFile) => ReactNode
   onPriorityChange: (id: string, priority: number) => void
 }
 
-function FileTree({ files, hash, onPriorityChange }: FileTreeProps) {
+function FileTree({ files, renderDownload, onPriorityChange }: FileTreeProps) {
   // Build a simple tree structure
   interface TreeNode {
     name: string
@@ -37,6 +80,7 @@ function FileTree({ files, hash, onPriorityChange }: FileTreeProps) {
     progress: number
     priority: number
     index: number
+    file: TorrentFile
     children: TreeNode[]
   }
 
@@ -62,6 +106,7 @@ function FileTree({ files, hash, onPriorityChange }: FileTreeProps) {
             progress: isLast ? file.progress : 0,
             priority: isLast ? file.priority : 0,
             index: file.index,
+            file,
             children: []
           }
           current.push(node)
@@ -99,6 +144,7 @@ function FileTree({ files, hash, onPriorityChange }: FileTreeProps) {
           {node.progress > 0 && node.progress < 1 && (
             <span className="text-xs text-muted-foreground flex-shrink-0">{Math.round(node.progress * 100)}%</span>
           )}
+          {renderDownload(node.file)}
         </div>
       )
     }
@@ -136,6 +182,8 @@ export function TorrentFilesDialog({ torrent, open, onOpenChange }: TorrentFiles
   const { data: files, isLoading } = useTorrentFiles(torrent?.hash ?? null)
   const setPriority = useSetFilePriority()
   const [selectedHash, setSelectedHash] = useState<string | null>(null)
+  // Edited in the Settings view; read on render so changes apply without a reload.
+  const downloadSettings = loadFileDownloadSettings()
 
   const handlePriorityChange = async (id: string, priority: number) => {
     if (!torrent) return
@@ -153,6 +201,27 @@ export function TorrentFilesDialog({ torrent, open, onOpenChange }: TorrentFiles
   const totalSize = files?.reduce((acc, f) => acc + f.size, 0) || 0
   const selectedSize = files?.filter(f => f.priority > 0).reduce((acc, f) => acc + f.size, 0) || 0
 
+  const renderDownload = (file: TorrentFile) => {
+    const isComplete = file.progress >= 1
+    const url = isComplete ? getFileDownloadUrl(downloadSettings, torrent, file.name) : null
+    const reason = !isComplete
+      ? 'File is not fully downloaded yet'
+      : 'Set up File Downloads in Settings first, and make sure this torrent is inside that directory'
+    return <FileDownloadButton url={url} fileName={file.name} reason={reason} />
+  }
+
+  const completedFiles = files?.filter(f => f.progress >= 1) ?? []
+  const details: [string, string][] = [
+    ['Size', formatSize(torrent.size)],
+    ['Progress', `${Math.round(torrent.progress * 100)}%`],
+    ['Ratio', torrent.ratio.toFixed(2)],
+    ['Seeds', String(torrent.num_seeds)],
+    ['Peers', String(torrent.num_leechs)],
+    ['Save path', torrent.save_path],
+    ['Category', torrent.category || '-'],
+    ['Tags', torrent.tags || '-'],
+  ]
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
@@ -160,24 +229,68 @@ export function TorrentFilesDialog({ torrent, open, onOpenChange }: TorrentFiles
           <DialogTitle className="truncate">{torrent.name}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex items-center justify-between text-sm text-muted-foreground px-4 py-2 border-b">
-          <span>{files?.length || 0} files</span>
-          <span>Selected: {selectedCount} ({formatSize(selectedSize)} / {formatSize(totalSize)})</span>
-        </div>
+        {!downloadSettings.baseUrl && (
+          <p className="text-xs text-muted-foreground">
+            To download files, set up File Downloads under Settings &gt; General.
+          </p>
+        )}
 
-        <div className="flex-1 overflow-y-auto">
-          {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading files...</div>
-          ) : files && files.length > 0 ? (
-            <FileTree
-              files={files}
-              hash={torrent.hash}
-              onPriorityChange={handlePriorityChange}
-            />
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">No files</div>
-          )}
-        </div>
+        <Tabs defaultValue="content" className="flex-1 min-h-0">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="content">Content</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="details" className="overflow-y-auto">
+            <dl className="text-sm divide-y">
+              {details.map(([label, value]) => (
+                <div key={label} className="flex justify-between gap-4 px-2 py-1.5">
+                  <dt className="text-muted-foreground flex-shrink-0">{label}</dt>
+                  <dd className="truncate" title={value}>{value}</dd>
+                </div>
+              ))}
+            </dl>
+
+            <div className="mt-3 px-2 text-sm font-medium">Files ready to download</div>
+            {isLoading ? (
+              <div className="text-center py-4 text-muted-foreground">Loading files...</div>
+            ) : completedFiles.length > 0 ? (
+              <div className="mt-1 space-y-1">
+                {completedFiles.map(file => (
+                  <div key={file.index} className="flex items-center gap-2 py-1 px-2">
+                    <File className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span className="text-sm truncate flex-1" title={file.name}>{file.name}</span>
+                    <span className="text-xs text-muted-foreground flex-shrink-0">{formatSize(file.size)}</span>
+                    {renderDownload(file)}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-4 text-muted-foreground">No completed files yet</div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="content" className="flex flex-col min-h-0 overflow-hidden">
+            <div className="flex items-center justify-between text-sm text-muted-foreground px-4 py-2 border-b">
+              <span>{files?.length || 0} files</span>
+              <span>Selected: {selectedCount} ({formatSize(selectedSize)} / {formatSize(totalSize)})</span>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {isLoading ? (
+                <div className="text-center py-8 text-muted-foreground">Loading files...</div>
+              ) : files && files.length > 0 ? (
+                <FileTree
+                  files={files}
+                  renderDownload={renderDownload}
+                  onPriorityChange={handlePriorityChange}
+                />
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">No files</div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
 
         <div className="flex justify-end gap-2 pt-2 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>

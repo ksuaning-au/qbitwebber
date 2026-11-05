@@ -27,6 +27,15 @@ Works with qBittorrent 5.x (including 5.2+) and when qBittorrent is served from 
 
 Your password is never stored by the web UI; the session is kept via qBittorrent's own HttpOnly session cookie.
 
+## Downloading Files
+
+qBittorrent's Web API cannot serve the content of a torrent, so downloads go through a separate HTTP file server that exposes your download directory (nginx, or the file area many seedboxes provide). Under Settings > General > File Downloads, enter:
+
+- **File server URL**: where that directory is served, e.g. `https://example.com/files/`
+- **Directory this URL points to**: the same directory's path on the server, e.g. `/home/user/downloads`
+
+A download button then appears next to each completed file in the torrent dialog's Details and Content tabs. Downloads use the file server's own login, if it has one. These settings are saved per browser.
+
 ## Development
 
 During development the Vite dev server proxies API requests under `/api` to the qBittorrent backend.
