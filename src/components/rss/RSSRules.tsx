@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { useCategories, useRemoveRSSRule, useRSSFeeds, useRSSRules, useSetRSSRule } from '@/hooks/useApi'
 import { toast } from '@/hooks/use-toast'
 import type { RSSRule } from '@/types'
+import { RuleExtras } from './RuleExtras'
 
 const EMPTY_RULE: RSSRule = { enabled: true, mustContain: '', mustNotContain: '', useRegex: false, affectedFeeds: [], assignedCategory: '', savePath: '' }
 
@@ -92,6 +93,7 @@ export function RSSRules() {
                   {rule.enabled ? 'On' : 'Off'}{rule.mustContain ? ` · Must contain: ${rule.mustContain}` : ''}
                 </p>
               </div>
+              <RuleExtras name={name} existing={Object.keys(rules ?? {})} />
               <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Edit ${name}`} title="Edit" onClick={() => open({
                 name,
                 isNew: false,

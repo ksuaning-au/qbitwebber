@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react'
-import { FolderOpen, File, CheckSquare, Square, Download } from 'lucide-react'
+import { useState, type FormEvent, type ReactNode } from 'react'
+import { FolderOpen, File, CheckSquare, Square, Download, Pencil } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -8,7 +9,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useTorrentFiles, useSetFilePriority, useWebApiVersion } from '@/hooks/useApi'
+import { useTorrentAction, useTorrentFiles, useSetFilePriority, useWebApiVersion } from '@/hooks/useApi'
+import { qbitClient, getTorrentExportUrl } from '@/lib/api'
+import { copyText } from '@/lib/clipboard'
+import { getNameProblem, getRenamedPath } from '@/lib/filePaths'
+import { formatDuration } from '@/lib/format'
 import { PeersTab } from './PeersTab'
 import { TorrentActions } from './TorrentActions'
 import { TrackersTab } from './TrackersTab'
@@ -65,13 +70,50 @@ function FileDownloadButton({ url, fileName, reason }: FileDownloadButtonProps) 
   )
 }
 
+// Resolves to true once the rename worked, so the form can close.
+type RenameHandler = (oldPath: string, isFile: boolean, newName: string) => Promise<boolean>
+
+function RenameForm({ path, onRename, onDone, indent }: { path: string; onRename: (newName: string) => Promise<boolean>; onDone: () => void; indent: number }) {
+  const currentName = path.split('/').pop() ?? path
+  const [name, setName] = useState(currentName)
+  const [saving, setSaving] = useState(false)
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    const problem = getNameProblem(name)
+    if (problem) {
+      toast.error(problem)
+      return
+    }
+    if (name.trim() === currentName) {
+      onDone()
+      return
+    }
+    setSaving(true)
+    const renamed = await onRename(name.trim())
+    setSaving(false)
+    if (renamed) onDone()
+  }
+
+  return (
+    <form onSubmit={submit} className="flex items-center gap-2 py-1 px-2" style={{ paddingLeft: indent }} onClick={(e) => e.stopPropagation()}>
+      <Input aria-label={`New name for ${currentName}`} value={name} autoFocus onChange={(e) => setName(e.target.value)} className="h-7 text-sm" />
+      <Button type="submit" size="sm" variant="outline" className="h-7" disabled={saving}>Save</Button>
+      <Button type="button" size="sm" variant="ghost" className="h-7" onClick={onDone}>Cancel</Button>
+    </form>
+  )
+}
+
 interface FileTreeProps {
   files: TorrentFile[]
   renderDownload: (file: TorrentFile) => ReactNode
   onPriorityChange: (id: string, priority: number) => void
+  onRename: RenameHandler
 }
 
-function FileTree({ files, renderDownload, onPriorityChange }: FileTreeProps) {
+function FileTree({ files, renderDownload, onPriorityChange, onRename }: FileTreeProps) {
+  const [renaming, setRenaming] = useState<string | null>(null)
+
   // Build a simple tree structure
   interface TreeNode {
     name: string
@@ -124,6 +166,24 @@ function FileTree({ files, renderDownload, onPriorityChange }: FileTreeProps) {
 
   const renderNode = (node: TreeNode, depth: number = 0) => {
     const indent = depth * 16
+    const renameButton = (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6 flex-shrink-0"
+        aria-label={`Rename ${node.name}`}
+        title="Rename"
+        onClick={(e) => { e.stopPropagation(); setRenaming(node.path) }}
+      >
+        <Pencil className="h-3 w-3" />
+      </Button>
+    )
+    const renameForm = renaming === node.path && (
+      <RenameForm key={`rename-${node.path}`} path={node.path} indent={indent} onDone={() => setRenaming(null)} onRename={(name) => onRename(node.path, node.isFile, name)} />
+    )
+
+    if (node.isFile && renameForm) return renameForm
 
     if (node.isFile) {
       const isSelected = node.priority > 0
@@ -145,6 +205,7 @@ function FileTree({ files, renderDownload, onPriorityChange }: FileTreeProps) {
           {node.progress > 0 && node.progress < 1 && (
             <span className="text-xs text-muted-foreground flex-shrink-0">{Math.round(node.progress * 100)}%</span>
           )}
+          {renameButton}
           {renderDownload(node.file)}
         </div>
       )
@@ -152,13 +213,16 @@ function FileTree({ files, renderDownload, onPriorityChange }: FileTreeProps) {
 
     return (
       <div key={node.path}>
-        <div
-          className="flex items-center gap-2 py-1 px-2 font-medium text-sm"
-          style={{ paddingLeft: indent }}
-        >
-          <FolderOpen className="h-4 w-4 text-yellow-500 flex-shrink-0" />
-          <span className="truncate">{node.name}</span>
-        </div>
+        {renameForm || (
+          <div
+            className="flex items-center gap-2 py-1 px-2 font-medium text-sm"
+            style={{ paddingLeft: indent }}
+          >
+            <FolderOpen className="h-4 w-4 text-yellow-500 flex-shrink-0" />
+            <span className="truncate flex-1">{node.name}</span>
+            {renameButton}
+          </div>
+        )}
         {node.children.map(child => renderNode(child, depth + 1))}
       </div>
     )
@@ -187,6 +251,7 @@ interface TorrentFilesDialogProps {
 export function TorrentFilesDialog({ torrent, initialTab = 'content', open, onOpenChange }: TorrentFilesDialogProps) {
   const { data: files, isLoading } = useTorrentFiles(torrent?.hash ?? null)
   const setPriority = useSetFilePriority()
+  const action = useTorrentAction()
   const webApiVersion = useWebApiVersion()
 
   const handlePriorityChange = async (id: string, priority: number) => {
@@ -200,6 +265,19 @@ export function TorrentFilesDialog({ torrent, initialTab = 'content', open, onOp
   }
 
   if (!torrent) return null
+
+  const handleRename: RenameHandler = (oldPath, isFile, newName) => {
+    const newPath = getRenamedPath(oldPath, newName)
+    return action.mutateAsync({
+      work: () => (isFile ? qbitClient.renameFile(torrent.hash, oldPath, newPath) : qbitClient.renameFolder(torrent.hash, oldPath, newPath)),
+      failed: isFile ? 'Failed to rename file' : 'Failed to rename folder',
+    }).then(() => { toast.success('Renamed'); return true }, () => false)
+  }
+
+  const copy = async (text: string, what: string) => {
+    if (await copyText(text)) toast.success(`${what} copied`)
+    else toast.error(`Couldn't copy the ${what.toLowerCase()}`)
+  }
 
   const selectedCount = files?.filter(f => f.priority > 0).length || 0
   const totalSize = files?.reduce((acc, f) => acc + f.size, 0) || 0
@@ -222,7 +300,7 @@ export function TorrentFilesDialog({ torrent, initialTab = 'content', open, onOp
   }
 
   const completedFiles = files?.filter(f => f.progress >= 1) ?? []
-  const details: [string, string][] = [
+  const details = ([
     ['Size', formatSize(torrent.size)],
     ['Progress', `${Math.round(torrent.progress * 100)}%`],
     ['Download speed', `${formatSize(torrent.dlspeed)}/s`],
@@ -234,11 +312,25 @@ export function TorrentFilesDialog({ torrent, initialTab = 'content', open, onOp
     ['Ratio', torrent.ratio.toFixed(2)],
     ['Seeds', String(torrent.num_seeds)],
     ['Peers', String(torrent.num_leechs)],
+    ['Queue position', torrent.priority > 0 ? String(torrent.priority) : 'Not queued'],
+    ['Time active', formatDuration(torrent.time_active)],
+    ['Seeding time', formatDuration(torrent.seeding_time)],
+    ['Availability', torrent.availability !== undefined && torrent.availability >= 0 ? torrent.availability.toFixed(3) : undefined],
+    ['Next announce', torrent.reannounce !== undefined ? formatDuration(torrent.reannounce) : undefined],
+    ['Connections', torrent.connections_count !== undefined ? `${torrent.connections_count}${torrent.connections_limit && torrent.connections_limit > 0 ? ` of ${torrent.connections_limit}` : ''}` : undefined],
+    ['Wasted', torrent.total_wasted !== undefined ? formatSize(torrent.total_wasted) : undefined],
+    ['Pieces', torrent.pieces_num ? `${torrent.pieces_have ?? 0} of ${torrent.pieces_num}${torrent.piece_size ? `, ${formatSize(torrent.piece_size)} each` : ''}` : undefined],
     ['Save path', torrent.save_path],
+    ['Incomplete files', torrent.download_path || undefined],
     ['Category', torrent.category || '-'],
     ['Tags', torrent.tags || '-'],
+    ['Private', torrent.private === undefined ? undefined : torrent.private ? 'Yes' : 'No'],
+    ['Created by', torrent.created_by || undefined],
+    ['Created on', torrent.creation_date && torrent.creation_date > 0 ? formatDate(torrent.creation_date) : undefined],
+    ['Comment', torrent.comment || undefined],
     ['Hash', torrent.hash],
-  ]
+    ['Hash (v2)', torrent.infohash_v2 || undefined],
+  ] as [string, string | undefined][]).filter((row): row is [string, string] => row[1] !== undefined)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -262,6 +354,23 @@ export function TorrentFilesDialog({ torrent, initialTab = 'content', open, onOp
 
           <TabsContent value="details" className="overflow-y-auto">
             <PieceBar hash={torrent.hash} torrentComplete={torrent.progress >= 1} />
+
+            <div className="flex flex-wrap gap-2 px-2 pb-2">
+              <Button type="button" size="sm" variant="outline" onClick={() => copy(torrent.name, 'Name')}>Copy name</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => copy(torrent.hash, 'Hash')}>Copy hash</Button>
+              {torrent.magnet_uri && (
+                <Button type="button" size="sm" variant="outline" onClick={() => copy(torrent.magnet_uri, 'Magnet link')}>Copy magnet link</Button>
+              )}
+              {torrent.has_metadata === false ? (
+                <span className="inline-flex cursor-not-allowed" title="Available once qBittorrent has this torrent's metadata">
+                  <Button type="button" size="sm" variant="outline" disabled>Export .torrent</Button>
+                </span>
+              ) : (
+                <Button size="sm" variant="outline" asChild>
+                  <a href={getTorrentExportUrl(torrent.hash)} download={`${torrent.name}.torrent`}>Export .torrent</a>
+                </Button>
+              )}
+            </div>
 
             <dl className="text-sm divide-y">
               {details.map(([label, value]) => (
@@ -317,6 +426,7 @@ export function TorrentFilesDialog({ torrent, initialTab = 'content', open, onOp
                   files={files}
                   renderDownload={renderDownload}
                   onPriorityChange={handlePriorityChange}
+                  onRename={handleRename}
                 />
               ) : (
                 <div className="text-center py-8 text-muted-foreground">No files</div>

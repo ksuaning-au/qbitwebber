@@ -10,8 +10,12 @@ import type {
   RSSRule,
   TorrentCategory,
   TorrentPeer,
+  PeerLogEntry,
+  Cookie,
+  WebSeed,
 } from '@/types'
 import type { ShareLimits } from './shareLimits'
+import type { MainDataUpdate } from './mainData'
 
 class DemoQBittorrentClient {
   private isLoggedIn = false
@@ -56,10 +60,6 @@ class DemoQBittorrentClient {
     return '2.11.2'
   }
 
-  async getAppConfig(): Promise<{ webuiPort: number; locale: string }> {
-    return { webuiPort: 8080, locale: 'en' }
-  }
-
   private bannedIPs: string[] = []
 
   async getPreferences(): Promise<Record<string, unknown>> {
@@ -68,6 +68,39 @@ class DemoQBittorrentClient {
 
   async setPreferences(prefs: Record<string, unknown>): Promise<void> {
     if (typeof prefs.banned_IPs === 'string') this.bannedIPs = prefs.banned_IPs.split('\n').filter(Boolean)
+  }
+
+  async getDirectoryContent(dirPath: string, _mode: 'dirs' | 'all'): Promise<string[]> {
+    const base = dirPath.replace(/\/$/, '')
+    return base.split('/').length > 4 ? [] : ['downloads', 'media', 'torrents'].map(name => `${base}/${name}`)
+  }
+
+  private cookies: Cookie[] = []
+
+  async getCookies(): Promise<Cookie[]> {
+    return this.cookies
+  }
+
+  async setCookies(cookies: Cookie[]): Promise<void> {
+    this.cookies = cookies
+  }
+
+  async rotateApiKey(): Promise<string> {
+    return 'qbt_demo0000000000000000000000000'
+  }
+
+  async deleteApiKey(): Promise<void> {
+  }
+
+  async getNetworkInterfaces(): Promise<{ name: string; value: string }[]> {
+    return [{ name: 'eth0', value: 'eth0' }]
+  }
+
+  async getInterfaceAddresses(_iface: string): Promise<string[]> {
+    return ['192.0.2.10']
+  }
+
+  async sendTestEmail(): Promise<void> {
   }
 
   async revertToDefaultWebUI(): Promise<void> {
@@ -381,10 +414,16 @@ class DemoQBittorrentClient {
     ]
   }
 
-  async addTorrentUrl(_url: string, _options?: { savePath?: string; category?: string }): Promise<void> {
+  async addTorrentUrl(_url: string, _options?: { savePath?: string; category?: string; downloader?: string }): Promise<unknown> {
+    return { success_count: 1, failure_count: 0, pending_count: 0 }
   }
 
-  async addTorrentFile(_file: File, _options?: { savePath?: string; category?: string }): Promise<void> {
+  async addTorrents(_params: Record<string, string>, files: File[], _filePriorities?: number[]): Promise<unknown> {
+    return { success_count: Math.max(files.length, 1), failure_count: 0, pending_count: 0 }
+  }
+
+  async fetchMetadata(source: string): Promise<unknown> {
+    return { hash: 'demo', info: { name: source.slice(0, 40), length: 3_000_000, files: [{ path: 'Demo/one.mkv', length: 2_000_000 }, { path: 'Demo/two.nfo', length: 1_000_000 }] } }
   }
 
   async deleteTorrents(_hashes: string[], _deleteFiles: boolean = false): Promise<void> {
@@ -396,8 +435,9 @@ class DemoQBittorrentClient {
   async resumeTorrents(_hashes: string[]): Promise<void> {
   }
 
-  async getRSSFeeds(): Promise<{ feeds: RSSFeed[] }> {
+  async getRSSFeeds(): Promise<{ feeds: RSSFeed[]; folders: string[] }> {
     return {
+      folders: [],
       feeds: [
         { uid: 'feed1', path: 'feed1', url: 'https://example.com/rss/movies', title: 'Movie Releases', unreadCount: 3, hasError: false },
         { uid: 'feed2', path: 'feed2', url: 'https://example.com/rss/tv', title: 'TV Shows', unreadCount: 5, hasError: false },
@@ -416,13 +456,45 @@ class DemoQBittorrentClient {
     }
   }
 
-  async addRSSFeed(_url: string): Promise<void> {
+  async addRSSFeed(_url: string, _folder = ''): Promise<void> {
+  }
+
+  async addRSSFolder(_path: string): Promise<void> {
+  }
+
+  async moveRSSItem(_itemPath: string, _destPath: string): Promise<void> {
+  }
+
+  async refreshRSSItem(_itemPath: string): Promise<void> {
+  }
+
+  async setRSSFeedURL(_path: string, _url: string): Promise<void> {
+  }
+
+  async setRSSFeedRefreshInterval(_path: string, _seconds: number): Promise<void> {
+  }
+
+  async renameRSSRule(_ruleName: string, _newRuleName: string): Promise<void> {
+  }
+
+  async getRSSMatchingArticles(_ruleName: string): Promise<Record<string, string[]>> {
+    return { 'Linux ISOs': ['Ubuntu 24.04.2 Desktop', 'Debian 12.9 netinst'] }
+  }
+
+  async getSearchStatus(): Promise<{ id: number; status: string; total: number }[]> {
+    return []
+  }
+
+  async deleteSearch(_id: number): Promise<void> {
+  }
+
+  async downloadSearchTorrent(_torrentUrl: string, _pluginName: string): Promise<void> {
   }
 
   async removeRSSFeed(_uid: string): Promise<void> {
   }
 
-  async markAsRead(_uid: string, _articleId?: string): Promise<void> {
+  async markAsRead(_itemPath: string, _articleId?: string): Promise<void> {
   }
 
   async getRSSRules(): Promise<Record<string, RSSRule>> {
@@ -480,6 +552,61 @@ class DemoQBittorrentClient {
       if (i / total < progress) return 2
       return progress > 0 && i / total < progress + 0.02 ? 1 : 0
     })
+  }
+
+  async moveInQueue(_hashes: string[], _direction: 'top' | 'up' | 'down' | 'bottom'): Promise<void> {
+  }
+
+  async toggleSequentialDownload(_hashes: string[]): Promise<void> {
+  }
+
+  async toggleFirstLastPiecePrio(_hashes: string[]): Promise<void> {
+  }
+
+  async setSuperSeeding(_hashes: string[], _value: boolean): Promise<void> {
+  }
+
+  async setAutoManagement(_hashes: string[], _enable: boolean): Promise<void> {
+  }
+
+  async setComment(_hashes: string[], _comment: string): Promise<void> {
+  }
+
+  async setDownloadPath(_hashes: string[], _path: string): Promise<void> {
+  }
+
+  async renameFile(_hash: string, _oldPath: string, _newPath: string): Promise<void> {
+  }
+
+  async renameFolder(_hash: string, _oldPath: string, _newPath: string): Promise<void> {
+  }
+
+  async getWebSeeds(_hash: string): Promise<WebSeed[]> {
+    return []
+  }
+
+  async addWebSeeds(_hash: string, _urls: string[]): Promise<void> {
+  }
+
+  async editWebSeed(_hash: string, _origUrl: string, _newUrl: string): Promise<void> {
+  }
+
+  async removeWebSeeds(_hash: string, _urls: string[]): Promise<void> {
+  }
+
+  async createCategory(_category: string, _savePath: string): Promise<void> {
+  }
+
+  async editCategory(_category: string, _savePath: string): Promise<void> {
+  }
+
+  async removeCategories(_categories: string[]): Promise<void> {
+  }
+
+  async createTags(_tags: string[]): Promise<void> {
+  }
+
+  async deleteTags(_tags: string[]): Promise<void> {
   }
 
   async setForceStart(_hashes: string[], _value: boolean): Promise<void> {
@@ -551,15 +678,29 @@ class DemoQBittorrentClient {
     return []
   }
 
-  async getLogs(_normal: boolean = true, _lastId: number = -1): Promise<LogEntry[]> {
-    const now = Math.floor(Date.now() / 1000)
+  async getLogs(_levels: { normal: boolean; info: boolean; warning: boolean; critical: boolean }): Promise<LogEntry[]> {
     return [
-      { id: 1, timestamp: now - 60, type: 'INFO', message: 'qBittorrent v5.0.1 started' },
-      { id: 2, timestamp: now - 120, type: 'INFO', message: 'Listening on IP: 0.0.0.0:8080' },
-      { id: 3, timestamp: now - 180, type: 'WARNING', message: 'Tracker "https://bad-tracker.com" failed: Connection timed out' },
-      { id: 4, timestamp: now - 240, type: 'INFO', message: 'Downloaded ubuntu-24.04-desktop-amd64.iso (100%)' },
-      { id: 5, timestamp: now - 300, type: 'INFO', message: 'Torrent category "Movies" created' },
+      { id: 1, timestamp: Math.floor(Date.now() / 1000) - 120, type: 1, message: 'qBittorrent v5.2.3 started' },
+      { id: 2, timestamp: Math.floor(Date.now() / 1000) - 60, type: 2, message: 'Successfully listening on IP. Port: 6881' },
+      { id: 3, timestamp: Math.floor(Date.now() / 1000) - 30, type: 4, message: 'Tracker is unreachable' },
     ]
+  }
+
+  async getPeerLog(): Promise<PeerLogEntry[]> {
+    return [{ id: 1, timestamp: Math.floor(Date.now() / 1000) - 10, ip: '198.51.100.20', blocked: true, reason: 'banned peer' }]
+  }
+
+  private mainDataRid = 0
+
+  async getMainData(_rid: number): Promise<MainDataUpdate> {
+    const torrents = await this.getTorrents()
+    const transfer = await this.getTransferInfo()
+    return {
+      rid: ++this.mainDataRid,
+      full_update: true,
+      torrents: Object.fromEntries(torrents.map(torrent => [torrent.hash, torrent])),
+      server_state: { ...transfer, free_space_on_disk: 512_000_000_000, alltime_dl: 4_400_000_000_000, alltime_ul: 9_100_000_000_000, global_ratio: '2.07', total_peer_connections: 41 },
+    }
   }
 }
 

@@ -29,6 +29,8 @@ import { toast } from '@/hooks/use-toast'
 import { qbitClient } from '@/lib/api'
 import { useSearchPlugins } from '@/hooks/useApi'
 import { SearchPluginsDialog } from './SearchPluginsDialog'
+import { SearchHistory } from './SearchHistory'
+import { rememberSearchPattern } from '@/lib/searchPatterns'
 import { getSearchEngineError } from '@/lib/searchErrors'
 import type { SearchResult } from '@/types'
 
@@ -76,6 +78,19 @@ export function SearchView() {
   const [expandedResult, setExpandedResult] = useState<number | null>(null)
   const cancelSearchRef = useRef(false)
   const currentSearchIdRef = useRef<number | null>(null)
+  const [shownSearchId, setShownSearchId] = useState<number | null>(null)
+
+  const openSearch = async (id: number) => {
+    try {
+      const { results: found } = await qbitClient.getSearchResults(id)
+      setResults(found ?? [])
+      setShownSearchId(id)
+      setSearched(true)
+      setCurrentPage(1)
+    } catch (e) {
+      toast.error("Couldn't open that search", { description: e instanceof Error ? e.message : undefined })
+    }
+  }
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -101,6 +116,8 @@ export function SearchView() {
       const { id } = await qbitClient.startSearch(query, activePlugin, category)
 
       currentSearchIdRef.current = id
+      setShownSearchId(id)
+      if (id) rememberSearchPattern(id, query.trim())
 
       if (!id) {
         toast.error('Search not available - no plugins configured')
@@ -209,7 +226,9 @@ export function SearchView() {
 
     setIsDownloading(true)
     try {
-      await qbitClient.addTorrentUrl(selectedResult.fileUrl)
+      // The plugin fetches the .torrent itself when it can, for sites that need its login.
+      if (selectedResult.engineName) await qbitClient.downloadSearchTorrent(selectedResult.fileUrl, selectedResult.engineName)
+      else await qbitClient.addTorrentUrl(selectedResult.fileUrl)
       toast.success('Torrent added to download queue')
       setSelectedResult(null)
     } catch (err) {
@@ -295,6 +314,9 @@ export function SearchView() {
             </div>
             <Button type="button" variant="ghost" size="sm" onClick={() => setPluginsOpen(true)}>Manage plugins</Button>
           </form>
+          <div className="mt-3">
+            <SearchHistory activeId={shownSearchId} onOpen={(id) => { if (!isSearching) void openSearch(id) }} />
+          </div>
           <SearchPluginsDialog open={pluginsOpen} onOpenChange={setPluginsOpen} />
         </CardContent>
       </Card>

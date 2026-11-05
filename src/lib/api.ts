@@ -1,5 +1,4 @@
 import type {
-  AppConfig,
   Torrent,
   TorrentFile,
   TorrentTracker,
@@ -10,13 +9,17 @@ import type {
   LogEntry,
   TransferInfo,
   TorrentCategory,
-  TorrentPeer
+  TorrentPeer,
+  WebSeed,
+  PeerLogEntry,
+  Cookie
 } from '@/types'
 import type { ShareLimits } from './shareLimits'
 import { encodeTrackerUrls } from './trackers'
+import type { MainDataUpdate } from './mainData'
 
 import { demoClient } from './demoClient'
-import { flattenRSSTree, type RawRSSTree } from './rss'
+import { flattenRSSTree, listRSSFolders, type RawRSSTree } from './rss'
 
 // All API paths are relative (no leading slash) so the UI also works when
 // qBittorrent is served from a sub-path behind a reverse proxy,
@@ -35,6 +38,20 @@ function readStoredUsername(): string {
   } catch {
     return 'admin'
   }
+}
+
+export type QueueMove = 'top' | 'up' | 'down' | 'bottom'
+
+const QUEUE_ENDPOINTS: Record<QueueMove, string> = {
+  top: 'topPrio',
+  up: 'increasePrio',
+  down: 'decreasePrio',
+  bottom: 'bottomPrio',
+}
+
+// A link rather than a call, so the browser saves the file itself.
+export function getTorrentExportUrl(hash: string): string {
+  return `${API_BASE}/torrents/export?hash=${encodeURIComponent(hash)}`
 }
 
 class QBittorrentClient {
@@ -150,10 +167,6 @@ class QBittorrentClient {
     return String(await this.request<string | number>('app/webapiVersion'))
   }
 
-  async getAppConfig(): Promise<AppConfig> {
-    return this.request<AppConfig>('app/config')
-  }
-
   async getPreferences(): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>('app/preferences')
   }
@@ -167,12 +180,50 @@ class QBittorrentClient {
     })
   }
 
+  // Full paths of the folders (or files too) inside `dirPath` on qBittorrent's machine.
+  async getDirectoryContent(dirPath: string, mode: 'dirs' | 'all'): Promise<string[]> {
+    return this.request(`app/getDirectoryContent?${new URLSearchParams({ dirPath, mode })}`)
+  }
+
+  async getCookies(): Promise<Cookie[]> {
+    return this.request('app/cookies')
+  }
+
+  async setCookies(cookies: Cookie[]): Promise<void> {
+    await this.post('app/setCookies', { cookies: JSON.stringify(cookies) })
+  }
+
+  async rotateApiKey(): Promise<string> {
+    const result = await this.request<{ apiKey?: string }>('app/rotateAPIKey', { method: 'POST' })
+    return result.apiKey ?? ''
+  }
+
+  async deleteApiKey(): Promise<void> {
+    await this.request('app/deleteAPIKey', { method: 'POST' })
+  }
+
+  async getNetworkInterfaces(): Promise<{ name: string; value: string }[]> {
+    return this.request('app/networkInterfaceList')
+  }
+
+  async getInterfaceAddresses(iface: string): Promise<string[]> {
+    return this.request(`app/networkInterfaceAddressList?iface=${encodeURIComponent(iface)}`)
+  }
+
+  async sendTestEmail(): Promise<void> {
+    await this.request('app/sendTestEmail', { method: 'POST' })
+  }
+
   async revertToDefaultWebUI(): Promise<void> {
     await this.setPreferences({ alternative_webui_enabled: false })
   }
 
   async getTransferInfo(): Promise<TransferInfo> {
     return this.request<TransferInfo>('transfer/info')
+  }
+
+  async getMainData(rid: number): Promise<MainDataUpdate> {
+    return this.request<MainDataUpdate>(`sync/maindata?rid=${rid}`)
   }
 
   async getTorrents(filter?: string, category?: string): Promise<Torrent[]> {
@@ -245,6 +296,79 @@ class QBittorrentClient {
     return this.request<number[]>(`torrents/pieceStates?hash=${hash}`)
   }
 
+  async moveInQueue(hashes: string[], direction: QueueMove): Promise<void> {
+    await this.post(`torrents/${QUEUE_ENDPOINTS[direction]}`, { hashes: hashes.join('|') })
+  }
+
+  async toggleSequentialDownload(hashes: string[]): Promise<void> {
+    await this.post('torrents/toggleSequentialDownload', { hashes: hashes.join('|') })
+  }
+
+  async toggleFirstLastPiecePrio(hashes: string[]): Promise<void> {
+    await this.post('torrents/toggleFirstLastPiecePrio', { hashes: hashes.join('|') })
+  }
+
+  async setSuperSeeding(hashes: string[], value: boolean): Promise<void> {
+    await this.post('torrents/setSuperSeeding', { hashes: hashes.join('|'), value: String(value) })
+  }
+
+  async setAutoManagement(hashes: string[], enable: boolean): Promise<void> {
+    await this.post('torrents/setAutoManagement', { hashes: hashes.join('|'), enable: String(enable) })
+  }
+
+  async setComment(hashes: string[], comment: string): Promise<void> {
+    await this.post('torrents/setComment', { hashes: hashes.join('|'), comment })
+  }
+
+  // A blank path stops using a separate folder for incomplete files.
+  async setDownloadPath(hashes: string[], path: string): Promise<void> {
+    await this.post('torrents/setDownloadPath', { id: hashes.join('|'), path })
+  }
+
+  async renameFile(hash: string, oldPath: string, newPath: string): Promise<void> {
+    await this.post('torrents/renameFile', { hash, oldPath, newPath })
+  }
+
+  async renameFolder(hash: string, oldPath: string, newPath: string): Promise<void> {
+    await this.post('torrents/renameFolder', { hash, oldPath, newPath })
+  }
+
+  async getWebSeeds(hash: string): Promise<WebSeed[]> {
+    return this.request<WebSeed[]>(`torrents/webseeds?hash=${hash}`)
+  }
+
+  async addWebSeeds(hash: string, urls: string[]): Promise<void> {
+    await this.post('torrents/addWebSeeds', { hash, urls: urls.join('|') })
+  }
+
+  async editWebSeed(hash: string, origUrl: string, newUrl: string): Promise<void> {
+    await this.post('torrents/editWebSeed', { hash, origUrl, newUrl })
+  }
+
+  async removeWebSeeds(hash: string, urls: string[]): Promise<void> {
+    await this.post('torrents/removeWebSeeds', { hash, urls: urls.join('|') })
+  }
+
+  async createCategory(category: string, savePath: string): Promise<void> {
+    await this.post('torrents/createCategory', { category, savePath })
+  }
+
+  async editCategory(category: string, savePath: string): Promise<void> {
+    await this.post('torrents/editCategory', { category, savePath })
+  }
+
+  async removeCategories(categories: string[]): Promise<void> {
+    await this.post('torrents/removeCategories', { categories: categories.join('\n') })
+  }
+
+  async createTags(tags: string[]): Promise<void> {
+    await this.post('torrents/createTags', { tags: tags.join(',') })
+  }
+
+  async deleteTags(tags: string[]): Promise<void> {
+    await this.post('torrents/deleteTags', { tags: tags.join(',') })
+  }
+
   async setForceStart(hashes: string[], value: boolean): Promise<void> {
     await this.post('torrents/setForceStart', { hashes: hashes.join('|'), value: String(value) })
   }
@@ -307,28 +431,27 @@ class QBittorrentClient {
     return this.request<TorrentTracker[]>(`torrents/trackers?hash=${hash}`)
   }
 
-  async addTorrentUrl(url: string, options?: { savePath?: string; category?: string }): Promise<void> {
-    const formData = new URLSearchParams()
-    formData.append('urls', url)
-    if (options?.savePath) formData.append('savepath', options.savePath)
-    if (options?.category) formData.append('category', options.category)
-
-    await this.request('torrents/add', {
-      method: 'POST',
-      body: formData,
-    })
+  async addTorrentUrl(url: string, options?: { savePath?: string; category?: string; downloader?: string }): Promise<unknown> {
+    const params: Record<string, string> = { urls: url }
+    if (options?.savePath) params.savepath = options.savePath
+    if (options?.category) params.category = options.category
+    // A search plugin downloads the .torrent itself, for sites that need its login.
+    if (options?.downloader) params.downloader = options.downloader
+    return this.addTorrents(params, [])
   }
 
-  async addTorrentFile(file: File, options?: { savePath?: string; category?: string }): Promise<void> {
+  // `params` comes from buildAddParams. Files and links can be sent together.
+  async addTorrents(params: Record<string, string>, files: File[], filePriorities?: number[]): Promise<unknown> {
     const formData = new FormData()
-    formData.append('torrents', file)
-    if (options?.savePath) formData.append('savepath', options.savePath)
-    if (options?.category) formData.append('category', options.category)
+    for (const [key, value] of Object.entries(params)) formData.append(key, value)
+    for (const file of files) formData.append('torrents', file, file.name)
+    if (filePriorities?.length) formData.append('filePriorities', filePriorities.join(','))
+    return this.request('torrents/add', { method: 'POST', body: formData })
+  }
 
-    await this.request('torrents/add', {
-      method: 'POST',
-      body: formData,
-    })
+  // Asks qBittorrent for a link's file list. It answers with only the hash until it has it.
+  async fetchMetadata(source: string): Promise<unknown> {
+    return this.request('torrents/fetchMetadata', { method: 'POST', body: new URLSearchParams({ source }) })
   }
 
   async deleteTorrents(hashes: string[], deleteFiles: boolean = false): Promise<void> {
@@ -362,9 +485,9 @@ class QBittorrentClient {
     })
   }
 
-  async getRSSFeeds(): Promise<{ feeds: RSSFeed[] }> {
+  async getRSSFeeds(): Promise<{ feeds: RSSFeed[]; folders: string[] }> {
     const tree = await this.request<RawRSSTree>('rss/items?withData=true')
-    return { feeds: flattenRSSTree(tree).map(({ feed }) => feed) }
+    return { feeds: flattenRSSTree(tree).map(({ feed }) => feed), folders: listRSSFolders(tree) }
   }
 
   async getRSSItems(feedUid: string): Promise<{ articles: RSSItem[] }> {
@@ -372,18 +495,64 @@ class QBittorrentClient {
     return { articles: flattenRSSTree(tree).find(({ feed }) => feed.uid === feedUid)?.articles ?? [] }
   }
 
-  async addRSSFeed(url: string): Promise<void> {
-    // The path is the feed's name in qBittorrent, where a backslash would mean a folder.
-    await this.post('rss/addFeed', { url, path: url.replaceAll('\\', '/') })
+  // `folder` uses qBittorrent's backslash-separated paths. The feed is named after its URL.
+  async addRSSFeed(url: string, folder = ''): Promise<void> {
+    const name = url.replaceAll('\\', '/')
+    await this.post('rss/addFeed', { url, path: folder ? `${folder}\\${name}` : name })
+  }
+
+  async addRSSFolder(path: string): Promise<void> {
+    await this.post('rss/addFolder', { path })
+  }
+
+  // Moving an item within its folder renames it.
+  async moveRSSItem(itemPath: string, destPath: string): Promise<void> {
+    await this.post('rss/moveItem', { itemPath, destPath })
+  }
+
+  async refreshRSSItem(itemPath: string): Promise<void> {
+    await this.post('rss/refreshItem', { itemPath })
+  }
+
+  async setRSSFeedURL(path: string, url: string): Promise<void> {
+    await this.post('rss/setFeedURL', { path, url })
+  }
+
+  // 0 uses qBittorrent's global refresh interval.
+  async setRSSFeedRefreshInterval(path: string, seconds: number): Promise<void> {
+    await this.post('rss/setFeedRefreshInterval', { path, refreshInterval: String(seconds) })
+  }
+
+  async renameRSSRule(ruleName: string, newRuleName: string): Promise<void> {
+    await this.post('rss/renameRule', { ruleName, newRuleName })
+  }
+
+  // Article titles each feed would download, keyed by feed name.
+  async getRSSMatchingArticles(ruleName: string): Promise<Record<string, string[]>> {
+    return this.request(`rss/matchingArticles?ruleName=${encodeURIComponent(ruleName)}`)
+  }
+
+  async getSearchStatus(): Promise<{ id: number; status: string; total: number }[]> {
+    return this.request('search/status')
+  }
+
+  async deleteSearch(id: number): Promise<void> {
+    await this.post('search/delete', { id: String(id) })
+  }
+
+  // Lets the plugin fetch the .torrent itself, for sites that need its login.
+  async downloadSearchTorrent(torrentUrl: string, pluginName: string): Promise<void> {
+    await this.post('search/downloadTorrent', { torrentUrl, pluginName })
   }
 
   async removeRSSFeed(path: string): Promise<void> {
     await this.post('rss/removeItem', { path })
   }
 
-  async markAsRead(uid: string, articleId?: string): Promise<void> {
+  // Marks one article, or the whole feed or folder without an article id.
+  async markAsRead(itemPath: string, articleId?: string): Promise<void> {
     const formData = new URLSearchParams()
-    formData.append('uid', uid)
+    formData.append('itemPath', itemPath)
     if (articleId) formData.append('articleId', articleId)
 
     await this.request('rss/markAsRead', {
@@ -456,8 +625,19 @@ class QBittorrentClient {
     return this.request(`log/main?normal=false&info=false&warning=true&critical=false&last_known_id=${lastKnownId}`)
   }
 
-  async getLogs(normal: boolean = true, lastId: number = -1): Promise<LogEntry[]> {
-    return this.request(`log/main?normal=${normal}&lastId=${lastId}`)
+  async getLogs(levels: { normal: boolean; info: boolean; warning: boolean; critical: boolean }): Promise<LogEntry[]> {
+    const params = new URLSearchParams({
+      normal: String(levels.normal),
+      info: String(levels.info),
+      warning: String(levels.warning),
+      critical: String(levels.critical),
+      last_known_id: '-1',
+    })
+    return this.request(`log/main?${params}`)
+  }
+
+  async getPeerLog(): Promise<PeerLogEntry[]> {
+    return this.request('log/peers?last_known_id=-1')
   }
 }
 

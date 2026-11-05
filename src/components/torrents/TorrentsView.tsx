@@ -47,8 +47,10 @@ import { Input } from '@/components/ui/input'
 import { useCategories, useTags, useTorrents, usePauseTorrents, useResumeTorrents, useDeleteTorrents } from '@/hooks/useApi'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { PageBoundary } from '@/components/PageBoundary'
+import { StatusLine } from './StatusLine'
 import type { Torrent } from '@/types'
 
+const CategoriesTagsDialog = lazy(() => import('./CategoriesTagsDialog').then(m => ({ default: m.CategoriesTagsDialog })))
 const TorrentFilesDialog = lazy(() => import('./TorrentFilesDialog').then(m => ({ default: m.TorrentFilesDialog })))
 
 interface PendingDelete {
@@ -157,6 +159,7 @@ export function TorrentsView() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [currentPage, setCurrentPage] = useState(1)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [manageOpen, setManageOpen] = useState(false)
   const [nameFilter, setNameFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [categoryFilter, setCategoryFilter] = useState('')
@@ -377,6 +380,7 @@ export function TorrentsView() {
           </div>
         </div>
       </div>
+      <StatusLine />
 
       {/* Filters */}
       {filtersOpen && (
@@ -416,6 +420,9 @@ export function TorrentsView() {
           <option value="">All tags</option>
           {(tags ?? []).map(tag => <option key={tag} value={tag}>{tag}</option>)}
         </select>
+        <Button type="button" variant="ghost" size="sm" className="col-span-2 justify-start md:col-span-1" onClick={() => setManageOpen(true)}>
+          Manage categories and tags
+        </Button>
       </div>
       )}
 
@@ -714,6 +721,12 @@ export function TorrentsView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {manageOpen && (
+        <PageBoundary loading={null}>
+          <CategoriesTagsDialog open onOpenChange={setManageOpen} />
+        </PageBoundary>
+      )}
 
       {filesDialogTorrent && (
         <PageBoundary loading={null}>

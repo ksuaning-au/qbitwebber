@@ -69,11 +69,11 @@ export function Layout({ activeTab, onTabChange, children }: LayoutProps) {
             <div className="flex flex-col items-end text-[10px] leading-tight whitespace-nowrap sm:flex-row sm:items-center sm:gap-3 sm:text-xs">
               <div className="flex items-center gap-1">
                 <span className="text-green-500">↓</span>
-                <span>{formatSize(transferInfo.dl_info_speed)}/s</span>
+                <span>{formatSize(transferInfo.dl_info_speed ?? 0)}/s</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-blue-500">↑</span>
-                <span>{formatSize(transferInfo.up_info_speed)}/s</span>
+                <span>{formatSize(transferInfo.up_info_speed ?? 0)}/s</span>
               </div>
             </div>
           )}

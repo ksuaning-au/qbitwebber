@@ -1,75 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useTheme } from 'next-themes'
-import { Sun, Moon, Monitor } from 'lucide-react'
+import { Monitor, Moon, Sun } from 'lucide-react'
+import { ConfirmAction } from '@/components/ConfirmAction'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import { BannedPeers } from '@/components/BannedPeers'
-import { useAppVersion } from '@/hooks/useApi'
+import { useAppVersion, usePreferences, useSavePreferences } from '@/hooks/useApi'
+import { toast } from '@/hooks/use-toast'
 import { qbitClient } from '@/lib/api'
-import { toast } from 'sonner'
-
-interface Preferences {
-  locale: string
-  save_path: string
-  temp_path: string
-  temp_path_enabled: boolean
-  create_subfolder_enabled: boolean
-  start_paused_enabled: boolean
-  auto_tmm_enabled: boolean
-  queueing_enabled: boolean
-  max_active_downloads: number
-  max_active_torrents: number
-  max_active_uploads: number
-  dl_limit: number
-  up_limit: number
-  alt_dl_limit: number
-  alt_up_limit: number
-  listen_port: number
-  upnp: boolean
-  random_port: boolean
-  dht: boolean
-  pex: boolean
-  lsd: boolean
-  encryption: number
-}
-
-const defaultPreferences: Preferences = {
-  locale: 'en',
-  save_path: '',
-  temp_path: '',
-  temp_path_enabled: false,
-  create_subfolder_enabled: true,
-  start_paused_enabled: false,
-  auto_tmm_enabled: false,
-  queueing_enabled: false,
-  max_active_downloads: 3,
-  max_active_torrents: 5,
-  max_active_uploads: 3,
-  dl_limit: 0,
-  up_limit: 0,
-  alt_dl_limit: 1024,
-  alt_up_limit: 1024,
-  listen_port: 6881,
-  upnp: true,
-  random_port: false,
-  dht: true,
-  pex: true,
-  lsd: true,
-  encryption: 0,
-}
+import { PREFERENCE_SECTIONS, getChangedPreferences, toFormValue, type PrefDef } from '@/lib/preferences'
+import { PreferenceField } from './PreferenceField'
 
 const themeOptions = [
   { value: 'light', label: 'Light', icon: Sun },
@@ -77,451 +17,178 @@ const themeOptions = [
   { value: 'system', label: 'System', icon: Monitor },
 ]
 
-export function SettingsView() {
-  const { data: qbittorrentVersion } = useAppVersion()
+const SECTIONS = [{ id: 'app', title: 'App' }, ...PREFERENCE_SECTIONS.map(({ id, title }) => ({ id, title }))]
+
+function AppSection() {
   const { theme, setTheme } = useTheme()
-  const [preferences, setPreferences] = useState<Preferences>(defaultPreferences)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [revertDialogOpen, setRevertDialogOpen] = useState(false)
+  const { data: qbittorrentVersion } = useAppVersion()
   const [reverting, setReverting] = useState(false)
 
-  useEffect(() => {
-    loadPreferences()
-  }, [])
+  const about: [string, string | undefined][] = [
+    ['qbitwebber', `v${__APP_VERSION__}`],
+    ['qBittorrent', qbittorrentVersion],
+  ]
 
-  const loadPreferences = async () => {
-    try {
-      const prefs = await qbitClient.getPreferences() as unknown as Preferences
-      setPreferences({
-        ...defaultPreferences,
-        ...prefs,
-        dl_limit: prefs.dl_limit > 0 ? Math.round(prefs.dl_limit / 1024) : prefs.dl_limit,
-        up_limit: prefs.up_limit > 0 ? Math.round(prefs.up_limit / 1024) : prefs.up_limit,
-        alt_dl_limit: prefs.alt_dl_limit > 0 ? Math.round(prefs.alt_dl_limit / 1024) : prefs.alt_dl_limit,
-        alt_up_limit: prefs.alt_up_limit > 0 ? Math.round(prefs.alt_up_limit / 1024) : prefs.alt_up_limit,
-      })
-    } catch (error) {
-      console.error('Failed to load preferences:', error)
-      toast.error('Failed to load preferences')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleSave = async (section: string) => {
-    setSaving(true)
-    try {
-      const prefsToSave: Record<string, unknown> = {}
-
-      switch (section) {
-        case 'general':
-          prefsToSave.locale = preferences.locale
-          prefsToSave.save_path = preferences.save_path
-          prefsToSave.temp_path = preferences.temp_path
-          prefsToSave.temp_path_enabled = preferences.temp_path_enabled
-          prefsToSave.create_subfolder_enabled = preferences.create_subfolder_enabled
-          prefsToSave.start_paused_enabled = preferences.start_paused_enabled
-          prefsToSave.auto_tmm_enabled = preferences.auto_tmm_enabled
-          break
-        case 'queueing':
-          prefsToSave.queueing_enabled = preferences.queueing_enabled
-          prefsToSave.max_active_downloads = preferences.max_active_downloads
-          prefsToSave.max_active_torrents = preferences.max_active_torrents
-          prefsToSave.max_active_uploads = preferences.max_active_uploads
-          break
-        case 'speed':
-          prefsToSave.dl_limit = preferences.dl_limit > 0 ? preferences.dl_limit * 1024 : preferences.dl_limit
-          prefsToSave.up_limit = preferences.up_limit > 0 ? preferences.up_limit * 1024 : preferences.up_limit
-          prefsToSave.alt_dl_limit = preferences.alt_dl_limit > 0 ? preferences.alt_dl_limit * 1024 : preferences.alt_dl_limit
-          prefsToSave.alt_up_limit = preferences.alt_up_limit > 0 ? preferences.alt_up_limit * 1024 : preferences.alt_up_limit
-          break
-        case 'connection':
-          prefsToSave.listen_port = preferences.listen_port
-          prefsToSave.upnp = preferences.upnp
-          prefsToSave.random_port = preferences.random_port
-          prefsToSave.dht = preferences.dht
-          prefsToSave.pex = preferences.pex
-          prefsToSave.lsd = preferences.lsd
-          prefsToSave.encryption = preferences.encryption
-          break
-      }
-
-      await qbitClient.setPreferences(prefsToSave)
-      toast.success(`${section.charAt(0).toUpperCase() + section.slice(1)} settings saved`)
-    } catch (error) {
-      console.error('Failed to save preferences:', error)
-      toast.error('Failed to save settings')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleRevert = async () => {
+  const revert = async () => {
     setReverting(true)
     try {
       await qbitClient.revertToDefaultWebUI()
-      setRevertDialogOpen(false)
-      toast.success('Reverted to default Web UI. Reload the page or visit the root URL to access the default interface.')
-    } catch (error) {
-      console.error('Failed to revert to default Web UI:', error)
-      toast.error('Failed to revert to default Web UI')
+      toast.success("Switched to qBittorrent's own Web UI", { description: 'Reload the page to open it.' })
+    } catch (e) {
+      toast.error("Couldn't switch", { description: e instanceof Error ? e.message : undefined })
     } finally {
       setReverting(false)
     }
   }
 
-  const updatePreference = <K extends keyof Preferences>(key: K, value: Preferences[K]) => {
-    setPreferences(prev => ({ ...prev, [key]: value }))
-  }
+  return (
+    <div className="space-y-3">
+      <Card>
+        <CardHeader>
+          <CardTitle>Appearance</CardTitle>
+          <CardDescription>Choose light, dark, or follow your device</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Label>Theme</Label>
+            <div className="flex flex-wrap gap-1" role="group" aria-label="Theme">
+              {themeOptions.map(({ value, label, icon: Icon }) => (
+                <Button key={value} variant={theme === value ? 'secondary' : 'outline'} size="sm" aria-pressed={theme === value} onClick={() => setTheme(value)} className="gap-2">
+                  <Icon className="h-4 w-4" />
+                  <span>{label}</span>
+                </Button>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-  if (loading) {
-    return <div className="p-4">Loading preferences...</div>
+      <Card>
+        <CardHeader>
+          <CardTitle>About</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <dl className="space-y-1 text-sm">
+            {about.filter((row): row is [string, string] => !!row[1]).map(([label, value]) => (
+              <div key={label} className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd className="text-right">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Default Web UI</CardTitle>
+          <CardDescription>Switch back to qBittorrent's built-in Web UI</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          <ConfirmAction
+            buttonLabel={reverting ? 'Switching...' : "Use qBittorrent's own Web UI"}
+            label="Switch back to qBittorrent's built-in Web UI"
+            title="Switch to qBittorrent's own Web UI?"
+            message="This turns off qbitwebber. To use it again, turn the alternative Web UI back on in qBittorrent's settings."
+            confirmLabel="Switch"
+            disabled={reverting}
+            onConfirm={revert}
+          />
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// Edits live in SettingsView, so they survive switching sections and are all saved together.
+function PreferencesSection({ sectionId, edits, setEdits }: { sectionId: string; edits: Record<string, unknown>; setEdits: (update: (prev: Record<string, unknown>) => Record<string, unknown>) => void }) {
+  const { data: original, isLoading, isError } = usePreferences()
+  const save = useSavePreferences()
+  const section = PREFERENCE_SECTIONS.find(s => s.id === sectionId)
+
+  if (isLoading) return <p className="py-8 text-center text-muted-foreground">Loading settings...</p>
+  if (isError || !original || !section) return <p className="py-8 text-center text-muted-foreground">Couldn't load qBittorrent's settings</p>
+
+  const valueFor = (def: PrefDef) => (def.key in edits ? edits[def.key] : toFormValue(def, original[def.key]))
+  const getValue = (key: string) => (key in edits ? edits[key] : original[key])
+  const { changes: allChanges, invalid } = getChangedPreferences(original, edits)
+  // A cleared password box means "keep the current password".
+  const changes = Object.fromEntries(Object.entries(allChanges).filter(([key, value]) => !(key === 'web_ui_password' && value === '')))
+  const changeCount = Object.keys(changes).length
+
+  const submit = () => {
+    if (invalid.length) {
+      toast.error('Check these settings', { description: invalid.join(', ') })
+      return
+    }
+    const password = changes.web_ui_password
+    if (password !== undefined && (typeof password !== 'string' || password.length < 6)) {
+      toast.error('The new password needs at least 6 characters')
+      return
+    }
+    if (!Object.keys(changes).length) return
+    save.mutate(changes, {
+      onSuccess: () => {
+        setEdits(() => ({}))
+        toast.success('Settings saved')
+      },
+    })
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4">
-      <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="queueing">Queueing</TabsTrigger>
-          <TabsTrigger value="speed">Speed</TabsTrigger>
-          <TabsTrigger value="connection">Connection</TabsTrigger>
-        </TabsList>
+    <div className="space-y-3 pb-16">
+      {section.groups.map(group => (
+        <Card key={group.title}>
+          <CardHeader>
+            <CardTitle className="text-base">{group.title}</CardTitle>
+            {group.warning && <CardDescription className="text-amber-600 dark:text-amber-400">{group.warning}</CardDescription>}
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {group.prefs.map(def => {
+              const disabled = !!def.dependsOn && !getValue(def.dependsOn)
+              return (
+                <PreferenceField
+                  key={def.key}
+                  def={def}
+                  value={valueFor(def)}
+                  getValue={getValue}
+                  onChange={(value) => setEdits(prev => ({ ...prev, [def.key]: value }))}
+                  disabled={disabled}
+                  hasUnsavedChanges={changeCount > 0}
+                />
+              )
+            })}
+          </CardContent>
+        </Card>
+      ))}
 
-        <TabsContent value="general">
-          <Card>
-            <CardHeader>
-              <CardTitle>General Settings</CardTitle>
-              <CardDescription>Basic download and file settings</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="locale">Language</Label>
-                <Input
-                  id="locale"
-                  value={preferences.locale}
-                  onChange={(e) => updatePreference('locale', e.target.value)}
-                  placeholder="en"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="save_path">Default Save Path</Label>
-                <Input
-                  id="save_path"
-                  value={preferences.save_path}
-                  onChange={(e) => updatePreference('save_path', e.target.value)}
-                  placeholder="/downloads"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="temp_path">Temp Folder</Label>
-                <Input
-                  id="temp_path"
-                  value={preferences.temp_path}
-                  onChange={(e) => updatePreference('temp_path', e.target.value)}
-                  placeholder="/downloads/temp"
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="temp_path_enabled"
-                  checked={preferences.temp_path_enabled}
-                  onCheckedChange={(checked) => updatePreference('temp_path_enabled', !!checked)}
-                />
-                <Label htmlFor="temp_path_enabled">Enable temp folder</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="create_subfolder_enabled"
-                  checked={preferences.create_subfolder_enabled}
-                  onCheckedChange={(checked) => updatePreference('create_subfolder_enabled', !!checked)}
-                />
-                <Label htmlFor="create_subfolder_enabled">Create subfolder</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="start_paused_enabled"
-                  checked={preferences.start_paused_enabled}
-                  onCheckedChange={(checked) => updatePreference('start_paused_enabled', !!checked)}
-                />
-                <Label htmlFor="start_paused_enabled">Start paused</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="auto_tmm_enabled"
-                  checked={preferences.auto_tmm_enabled}
-                  onCheckedChange={(checked) => updatePreference('auto_tmm_enabled', !!checked)}
-                />
-                <Label htmlFor="auto_tmm_enabled">Auto torrent management</Label>
-              </div>
-              <Button onClick={() => handleSave('general')} disabled={saving}>
-                Save General Settings
-              </Button>
-            </CardContent>
-          </Card>
+      {(changeCount > 0 || invalid.length > 0) && (
+        <div className="sticky bottom-2 z-10 flex items-center justify-between gap-2 rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur">
+          <span className="text-sm">{changeCount === 1 ? '1 unsaved change' : `${changeCount} unsaved changes`}</span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setEdits(() => ({}))}>Discard</Button>
+            <Button size="sm" disabled={save.isPending} onClick={submit}>{save.isPending ? 'Saving...' : 'Save'}</Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
-          <Card className="mt-3">
-            <CardHeader>
-              <CardTitle>Appearance</CardTitle>
-              <CardDescription>Choose light, dark, or follow your device</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <Label>Theme</Label>
-                <div className="flex flex-wrap gap-1" role="group" aria-label="Theme">
-                  {themeOptions.map(({ value, label, icon: Icon }) => (
-                    <Button
-                      key={value}
-                      variant={theme === value ? 'secondary' : 'outline'}
-                      size="sm"
-                      aria-pressed={theme === value}
-                      onClick={() => setTheme(value)}
-                      className="gap-2"
-                    >
-                      <Icon className="h-4 w-4" />
-                      <span>{label}</span>
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+export function SettingsView() {
+  const [sectionId, setSectionId] = useState('app')
+  const [edits, setEdits] = useState<Record<string, unknown>>({})
 
-          <Card className="mt-3">
-            <CardHeader>
-              <CardTitle>About</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1 text-sm">
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">qbitwebber</span>
-                <span>v{__APP_VERSION__}</span>
-              </div>
-              <div className="flex justify-between gap-4">
-                <span className="text-muted-foreground">qBittorrent</span>
-                <span>{qbittorrentVersion ?? '-'}</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="mt-3">
-            <CardHeader>
-              <CardTitle>Default Web UI</CardTitle>
-              <CardDescription>Disable qbitwebber and revert to qBittorrent's built-in Web UI</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Dialog open={revertDialogOpen} onOpenChange={setRevertDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="destructive" size="default" className="gap-2">
-                    Revert to Default Web UI
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Revert to Default Web UI?</DialogTitle>
-                    <DialogDescription>
-                      This will disable qbitwebber. You will need to re-enable the alternative Web UI in qBittorrent's settings to use qbitwebber again.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setRevertDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button variant="destructive" onClick={handleRevert} disabled={reverting}>
-                      {reverting ? 'Reverting...' : 'Confirm'}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="queueing">
-          <Card>
-            <CardHeader>
-              <CardTitle>Queueing Settings</CardTitle>
-              <CardDescription>Configure download queue limits</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="queueing_enabled"
-                  checked={preferences.queueing_enabled}
-                  onCheckedChange={(checked) => updatePreference('queueing_enabled', !!checked)}
-                />
-                <Label htmlFor="queueing_enabled">Enable queueing</Label>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="max_active_downloads">Max Active Downloads</Label>
-                <Input
-                  id="max_active_downloads"
-                  type="number"
-                  value={preferences.max_active_downloads}
-                  onChange={(e) => updatePreference('max_active_downloads', parseInt(e.target.value) || 0)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="max_active_torrents">Max Active Torrents</Label>
-                <Input
-                  id="max_active_torrents"
-                  type="number"
-                  value={preferences.max_active_torrents}
-                  onChange={(e) => updatePreference('max_active_torrents', parseInt(e.target.value) || 0)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="max_active_uploads">Max Active Uploads</Label>
-                <Input
-                  id="max_active_uploads"
-                  type="number"
-                  value={preferences.max_active_uploads}
-                  onChange={(e) => updatePreference('max_active_uploads', parseInt(e.target.value) || 0)}
-                />
-              </div>
-              <Button onClick={() => handleSave('queueing')} disabled={saving}>
-                Save Queueing Settings
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="speed">
-          <Card>
-            <CardHeader>
-              <CardTitle>Speed Settings</CardTitle>
-              <CardDescription>Configure speed limits (KiB/s, 0 = unlimited)</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="dl_limit">Download Limit</Label>
-                <Input
-                  id="dl_limit"
-                  type="number"
-                  value={preferences.dl_limit}
-                  onChange={(e) => updatePreference('dl_limit', parseInt(e.target.value) || 0)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="up_limit">Upload Limit</Label>
-                <Input
-                  id="up_limit"
-                  type="number"
-                  value={preferences.up_limit}
-                  onChange={(e) => updatePreference('up_limit', parseInt(e.target.value) || 0)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="alt_dl_limit">Alternative Download Limit</Label>
-                <Input
-                  id="alt_dl_limit"
-                  type="number"
-                  value={preferences.alt_dl_limit}
-                  onChange={(e) => updatePreference('alt_dl_limit', parseInt(e.target.value) || 0)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="alt_up_limit">Alternative Upload Limit</Label>
-                <Input
-                  id="alt_up_limit"
-                  type="number"
-                  value={preferences.alt_up_limit}
-                  onChange={(e) => updatePreference('alt_up_limit', parseInt(e.target.value) || 0)}
-                />
-              </div>
-              <Button onClick={() => handleSave('speed')} disabled={saving}>
-                Save Speed Settings
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="connection">
-          <Card>
-            <CardHeader>
-              <CardTitle>Connection Settings</CardTitle>
-              <CardDescription>Configure ports and network options</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="listen_port">Listen Port</Label>
-                <Input
-                  id="listen_port"
-                  type="number"
-                  value={preferences.listen_port}
-                  onChange={(e) => updatePreference('listen_port', parseInt(e.target.value) || 6881)}
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="upnp"
-                  checked={preferences.upnp}
-                  onCheckedChange={(checked) => updatePreference('upnp', !!checked)}
-                />
-                <Label htmlFor="upnp">UPnP / NAT-PMP</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="random_port"
-                  checked={preferences.random_port}
-                  onCheckedChange={(checked) => updatePreference('random_port', !!checked)}
-                />
-                <Label htmlFor="random_port">Random Port</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="dht"
-                  checked={preferences.dht}
-                  onCheckedChange={(checked) => updatePreference('dht', !!checked)}
-                />
-                <Label htmlFor="dht">DHT</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="pex"
-                  checked={preferences.pex}
-                  onCheckedChange={(checked) => updatePreference('pex', !!checked)}
-                />
-                <Label htmlFor="pex">PeX</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="lsd"
-                  checked={preferences.lsd}
-                  onCheckedChange={(checked) => updatePreference('lsd', !!checked)}
-                />
-                <Label htmlFor="lsd">LSD</Label>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="encryption">Encryption</Label>
-                <select
-                  id="encryption"
-                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  value={preferences.encryption}
-                  onChange={(e) => updatePreference('encryption', parseInt(e.target.value))}
-                >
-                  <option value={0}>Prefer encryption</option>
-                  <option value={1}>Force encryption on</option>
-                  <option value={2}>Force encryption off</option>
-                </select>
-              </div>
-              <Button onClick={() => handleSave('connection')} disabled={saving}>
-                Save Connection Settings
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="mt-3">
-            <CardHeader>
-              <CardTitle>Banned Peers</CardTitle>
-              <CardDescription>Banned addresses can't connect to any torrent</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <BannedPeers />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+  return (
+    <div className="mx-auto max-w-3xl space-y-4">
+      <nav aria-label="Settings sections" className="flex flex-wrap gap-1">
+        {SECTIONS.map(section => (
+          <Button key={section.id} size="sm" variant={sectionId === section.id ? 'secondary' : 'ghost'} aria-current={sectionId === section.id ? 'page' : undefined} onClick={() => setSectionId(section.id)}>
+            {section.title}
+          </Button>
+        ))}
+      </nav>
+      {sectionId === 'app' ? <AppSection /> : <PreferencesSection sectionId={sectionId} edits={edits} setEdits={setEdits} />}
     </div>
   )
 }

@@ -3,10 +3,34 @@ import { qbitClient } from '@/lib/api'
 import { toast } from '@/hooks/use-toast'
 import { parseBannedPeers, removeBannedPeer } from '@/lib/bannedPeers'
 import { PIECE_DONE } from '@/lib/pieces'
+import { applyMainDataUpdate, type MainData } from '@/lib/mainData'
 import type { RSSRule } from '@/types'
 
 function showActionError(message: string, error: unknown) {
   toast.error(message, { description: error instanceof Error ? error.message : undefined })
+}
+
+export function usePreferences() {
+  return useQuery({
+    queryKey: ['preferences'],
+    queryFn: () => qbitClient.getPreferences(),
+    enabled: !!qbitClient.isConfigured(),
+    // Edits are kept separately, so a refresh never overwrites typing.
+    refetchOnWindowFocus: false,
+  })
+}
+
+export function useSavePreferences() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (changes: Record<string, unknown>) => qbitClient.setPreferences(changes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['preferences'] })
+      queryClient.invalidateQueries({ queryKey: ['bannedPeers'] })
+    },
+    onError: (error) => showActionError('Failed to save settings', error),
+  })
 }
 
 export function useAppVersion() {
@@ -25,22 +49,33 @@ export function useWebApiVersion() {
   })
 }
 
-export function useTransferInfo() {
+const MAINDATA_KEY = ['torrents', 'maindata']
+
+// One incremental request feeds the torrent list, speeds, and status. Its key starts with
+// 'torrents', so the existing refreshes after an action also refresh it.
+export function useMainData<T>(select: (data: MainData) => T) {
+  const queryClient = useQueryClient()
   return useQuery({
-    queryKey: ['transfer', 'info'],
-    queryFn: () => qbitClient.getTransferInfo(),
+    queryKey: MAINDATA_KEY,
+    queryFn: async () => {
+      const previous = queryClient.getQueryData<MainData>(MAINDATA_KEY) ?? null
+      return applyMainDataUpdate(previous, await qbitClient.getMainData(previous?.rid ?? 0))
+    },
+    select,
     enabled: !!qbitClient.isConfigured(),
-    refetchInterval: 3000,
+    refetchInterval: 2000,
   })
 }
 
-export function useTorrents(filter?: string, category?: string) {
-  return useQuery({
-    queryKey: ['torrents', filter, category],
-    queryFn: () => qbitClient.getTorrents(filter, category),
-    enabled: !!qbitClient.isConfigured(),
-    refetchInterval: 5000,
-  })
+const selectTorrents = (data: MainData) => Object.values(data.torrents)
+const selectServerState = (data: MainData) => data.serverState
+
+export function useTorrents() {
+  return useMainData(selectTorrents)
+}
+
+export function useTransferInfo() {
+  return useMainData(selectServerState)
 }
 
 export function useTorrentFiles(hash: string | null) {
@@ -76,6 +111,14 @@ export function useTorrentPieces(hash: string, torrentComplete: boolean) {
     queryKey: ['torrent', hash, 'pieces'],
     queryFn: () => qbitClient.getPieceStates(hash),
     refetchInterval: (query) => (torrentComplete && query.state.data?.every(state => state === PIECE_DONE) ? false : 5000),
+  })
+}
+
+export function useWebSeeds(hash: string) {
+  return useQuery({
+    queryKey: ['torrent', hash, 'webseeds'],
+    queryFn: () => qbitClient.getWebSeeds(hash),
+    enabled: !!hash,
   })
 }
 
@@ -124,6 +167,7 @@ export function useTorrentAction() {
       queryClient.invalidateQueries({ queryKey: ['torrents'] })
       queryClient.invalidateQueries({ queryKey: ['torrent'] })
       queryClient.invalidateQueries({ queryKey: ['bannedPeers'] })
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
       queryClient.invalidateQueries({ queryKey: ['tags'] })
     },
     onError: (error, { failed }) => showActionError(failed, error),
@@ -179,29 +223,6 @@ export function useRemoveRSSRule() {
     mutationFn: (name: string) => qbitClient.removeRSSRule(name),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rss', 'rules'] })
-    },
-  })
-}
-
-export function useAddTorrent() {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: ({ url, file, savePath, category }: { 
-      url?: string; 
-      file?: File; 
-      savePath?: string;
-      category?: string 
-    }) => {
-      if (url) {
-        return qbitClient.addTorrentUrl(url, { savePath, category })
-      } else if (file) {
-        return qbitClient.addTorrentFile(file, { savePath, category })
-      }
-      throw new Error('Either url or file must be provided')
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['torrents'] })
     },
   })
 }
@@ -293,11 +314,20 @@ export function useRemoveRSSFeed() {
   })
 }
 
-export function useLogs() {
+export function useLogs(levels: { normal: boolean; info: boolean; warning: boolean; critical: boolean }) {
   return useQuery({
-    queryKey: ['logs'],
-    queryFn: () => qbitClient.getLogs(true, -1),
+    queryKey: ['logs', 'main', levels],
+    queryFn: () => qbitClient.getLogs(levels),
     enabled: !!qbitClient.isConfigured(),
+    refetchInterval: 5000,
+  })
+}
+
+export function usePeerLog(enabled: boolean) {
+  return useQuery({
+    queryKey: ['logs', 'peers'],
+    queryFn: () => qbitClient.getPeerLog(),
+    enabled: enabled && !!qbitClient.isConfigured(),
     refetchInterval: 5000,
   })
 }

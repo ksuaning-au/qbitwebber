@@ -9,18 +9,28 @@ interface ConfirmActionProps {
   confirmLabel: string
   disabled?: boolean
   onConfirm: () => void
-  children: ReactNode
+  // Text for a small outlined button. Without it, `children` is shown as an icon button.
+  buttonLabel?: string
+  // For a text button that switches something on, so it reads as an off toggle.
+  pressed?: boolean
+  children?: ReactNode
 }
 
 // An icon button that asks in a pop-up before acting, like the delete prompt.
-export function ConfirmAction({ label, title, message, confirmLabel, disabled, onConfirm, children }: ConfirmActionProps) {
+export function ConfirmAction({ label, title, message, confirmLabel, disabled, onConfirm, buttonLabel, pressed, children }: ConfirmActionProps) {
   const [open, setOpen] = useState(false)
 
   return (
     <>
-      <Button type="button" variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" aria-label={label} title={label} disabled={disabled} onClick={() => setOpen(true)}>
-        {children}
-      </Button>
+      {buttonLabel ? (
+        <Button type="button" size="sm" variant="outline" title={label} aria-pressed={pressed} disabled={disabled} onClick={() => setOpen(true)}>
+          {buttonLabel}
+        </Button>
+      ) : (
+        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" aria-label={label} title={label} disabled={disabled} onClick={() => setOpen(true)}>
+          {children}
+        </Button>
+      )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>

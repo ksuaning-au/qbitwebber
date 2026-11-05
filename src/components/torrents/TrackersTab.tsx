@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useTorrentAction, useTorrentTrackers } from '@/hooks/useApi'
+import { WebSeedsSection } from './WebSeedsSection'
 import { toast } from '@/hooks/use-toast'
 import { qbitClient } from '@/lib/api'
 import type { TorrentTracker } from '@/types'
@@ -136,6 +137,8 @@ export function TrackersTab({ hash }: { hash: string }) {
         />
         <Button type="submit" size="sm" variant="outline" disabled={action.isPending}>Add trackers</Button>
       </form>
+
+      <WebSeedsSection hash={hash} />
     </div>
   )
 }

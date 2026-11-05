@@ -1,14 +1,3 @@
-export interface AppConfig {
-  webuiPort: number
-  webuiPortForwarded: boolean
-  locale: string
-  authDomain: string
-  serverState: string
-  browseLicense: boolean
-  donateLevel: number
-  updateToMajor: boolean
-}
-
 export interface Torrent {
   added_on: number
   amount_left: number
@@ -46,6 +35,24 @@ export interface Torrent {
   seeding_time_limit: number
   // Sent by qBittorrent 5.2 and newer.
   share_limit_action?: string
+  // Sent by recent qBittorrent versions only.
+  seq_dl?: boolean
+  super_seeding?: boolean
+  comment?: string
+  availability?: number
+  reannounce?: number
+  private?: boolean
+  has_metadata?: boolean
+  connections_count?: number
+  connections_limit?: number
+  total_wasted?: number
+  pieces_num?: number
+  piece_size?: number
+  pieces_have?: number
+  created_by?: string
+  creation_date?: number
+  infohash_v1?: string
+  infohash_v2?: string
   seen_complete: number
   size: number
   state: TorrentState
@@ -124,6 +131,8 @@ export interface RSSFeed {
   title: string
   unreadCount: number
   hasError: boolean
+  isLoading?: boolean
+  refreshInterval?: number
   lastBuildDate?: string
 }
 
@@ -135,6 +144,7 @@ export interface RSSItem {
   author?: string
   date?: string
   description?: string
+  torrentUrl?: string
   isRead: boolean
 }
 
@@ -161,12 +171,27 @@ export interface TorrentPeer {
   country?: string
 }
 
+export interface Cookie {
+  name: string
+  domain: string
+  path: string
+  value: string
+  // Seconds since 1970.
+  expirationDate: number
+}
+
+export interface WebSeed {
+  url: string
+}
+
 export interface TorrentCategory {
   name: string
   savePath?: string
 }
 
 export interface SearchResult {
+  // The plugin that found it, sent by qBittorrent 4.4 and newer.
+  engineName?: string
   descrLink: string
   fileName: string
   fileSize: number
@@ -181,8 +206,17 @@ export type SearchStatus = 'Running' | 'Stopped' | 'Paused' | 'Completed' | 'Err
 export interface LogEntry {
   id: number
   timestamp: number
-  type: LogType
+  // qBittorrent's levels: 1 normal, 2 info, 4 warning, 8 critical.
+  type: number
   message: string
+}
+
+export interface PeerLogEntry {
+  id: number
+  timestamp: number
+  ip: string
+  blocked: boolean
+  reason: string
 }
 
 export type LogType = 'INFO' | 'WARNING' | 'CRITICAL' | 'DEBUG' | 'ERROR'
