@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, type MouseEvent } from 'react'
 import {
   Play,
   Pause,
@@ -142,6 +142,7 @@ export function TorrentsView() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [currentPage, setCurrentPage] = useState(1)
   const [filesDialogTorrent, setFilesDialogTorrent] = useState<Torrent | null>(null)
+  const [filesDialogTab, setFilesDialogTab] = useState<'details' | 'content'>('content')
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
 
   const sortedTorrents = useMemo(() => {
@@ -225,6 +226,19 @@ export function TorrentsView() {
   const handleDelete = (deleteFiles: boolean) => {
     deleteMutation.mutate({ hashes: Array.from(selected), deleteFiles })
     setSelected(new Set())
+  }
+
+  const openFilesDialog = (torrent: Torrent, tab: 'details' | 'content') => {
+    setFilesDialogTab(tab)
+    setFilesDialogTorrent(torrent)
+  }
+
+  const handleTorrentDoubleClick = (e: MouseEvent, torrent: Torrent) => {
+    // Double-clicking a control inside the row should only use that control.
+    if ((e.target as HTMLElement).closest('button, a, input, label, [role="menuitem"]')) return
+    // A double-click also selects the word under the pointer.
+    window.getSelection()?.removeAllRanges()
+    openFilesDialog(torrent, 'details')
   }
 
   if (isLoading) {
@@ -356,7 +370,11 @@ export function TorrentsView() {
                   {paginatedTorrents.map((torrent) => {
                     const isActive = !isStoppedState(torrent.state)
                     return (
-                      <TableRow key={torrent.hash} className={selected.has(torrent.hash) ? 'bg-muted' : ''}>
+                      <TableRow
+                        key={torrent.hash}
+                        className={(selected.has(torrent.hash) ? 'bg-muted ' : '') + 'cursor-pointer'}
+                        onDoubleClick={(e) => handleTorrentDoubleClick(e, torrent)}
+                      >
                         <TableCell>
                           <Checkbox
                             checked={selected.has(torrent.hash)}
@@ -399,7 +417,7 @@ export function TorrentsView() {
                             <Button variant="ghost" size="icon" className="h-8 w-8 mr-2" onClick={() => isActive ? pauseMutation.mutate([torrent.hash]) : resumeMutation.mutate([torrent.hash])}>
                               {isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setFilesDialogTorrent(torrent)}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openFilesDialog(torrent, 'content')}>
                               <Files className="h-4 w-4 mr-2" />
                             </Button>
                             <DropdownMenu>
@@ -435,7 +453,11 @@ export function TorrentsView() {
           const isActive = !isStoppedState(torrent.state)
           const isExpanded = expandedCard === torrent.hash
           return (
-            <Card key={torrent.hash} className={(selected.has(torrent.hash) ? 'border-primary' : '') + " py-3"}>
+            <Card
+              key={torrent.hash}
+              className={(selected.has(torrent.hash) ? 'border-primary' : '') + " py-3 cursor-pointer"}
+              onDoubleClick={(e) => handleTorrentDoubleClick(e, torrent)}
+            >
               <CardContent className="px-3">
                 <div className="flex items-start gap-2">
                   <Checkbox
@@ -502,7 +524,7 @@ export function TorrentsView() {
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => isActive ? pauseMutation.mutate([torrent.hash]) : resumeMutation.mutate([torrent.hash])}>
                     {isActive ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setFilesDialogTorrent(torrent)}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openFilesDialog(torrent, 'content')}>
                     <Files className="h-3 w-3" />
                   </Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteMutation.mutate({ hashes: [torrent.hash], deleteFiles: false })}>
@@ -537,6 +559,7 @@ export function TorrentsView() {
 
       <TorrentFilesDialog
         torrent={filesDialogTorrent}
+        initialTab={filesDialogTab}
         open={!!filesDialogTorrent}
         onOpenChange={(open) => !open && setFilesDialogTorrent(null)}
       />
