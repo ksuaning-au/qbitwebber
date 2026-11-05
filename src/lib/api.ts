@@ -266,7 +266,7 @@ class QBittorrentClient {
   }
 
   async startSearch(pattern: string): Promise<{ id: number }> {
-    const body = `pattern=${encodeURIComponent(pattern).replace(/%20/g, '+')}&plugins=all&category=all`
+    const body = `pattern=${encodeURIComponent(pattern).replace(/%20/g, '+')}&plugins=enabled&category=all`
 
     return this.request('/api/v2/search/start', {
       method: 'POST',
