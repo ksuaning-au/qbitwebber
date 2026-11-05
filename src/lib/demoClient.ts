@@ -7,13 +7,16 @@ import type {
   SearchResult,
   LogEntry,
   TransferInfo,
+  RSSRule,
+  TorrentCategory,
+  TorrentPeer,
 } from '@/types'
 
 class DemoQBittorrentClient {
   private isLoggedIn = false
   private username = ''
 
-  setCredentials(username: string, password: string) {
+  setCredentials(username: string, _password: string) {
     this.username = username
     localStorage.setItem('qbit_user', username)
   }
@@ -392,9 +395,9 @@ class DemoQBittorrentClient {
   async getRSSFeeds(): Promise<{ feeds: RSSFeed[] }> {
     return {
       feeds: [
-        { uid: 'feed1', url: 'https://example.com/rss/movies', title: 'Movie Releases', unreadCount: 3, hasError: false },
-        { uid: 'feed2', url: 'https://example.com/rss/tv', title: 'TV Shows', unreadCount: 5, hasError: false },
-        { uid: 'feed3', url: 'https://example.com/rss/software', title: 'Software Updates', unreadCount: 1, hasError: false },
+        { uid: 'feed1', path: 'feed1', url: 'https://example.com/rss/movies', title: 'Movie Releases', unreadCount: 3, hasError: false },
+        { uid: 'feed2', path: 'feed2', url: 'https://example.com/rss/tv', title: 'TV Shows', unreadCount: 5, hasError: false },
+        { uid: 'feed3', path: 'feed3', url: 'https://example.com/rss/software', title: 'Software Updates', unreadCount: 1, hasError: false },
       ],
     }
   }
@@ -418,21 +421,64 @@ class DemoQBittorrentClient {
   async markAsRead(_uid: string, _articleId?: string): Promise<void> {
   }
 
-  async getRSSRules(): Promise<{ rules: never[] }> {
-    return { rules: [] }
+  async getRSSRules(): Promise<Record<string, RSSRule>> {
+    return {}
   }
 
-  async searchPlugins(): Promise<{ plugins: { name: string; version: string; enabled: boolean }[] }> {
-    return {
-      plugins: [
+  async setRSSRule(_name: string, _rule: RSSRule): Promise<void> {
+  }
+
+  async removeRSSRule(_name: string): Promise<void> {
+  }
+
+  async getTorrentPeers(_hash: string): Promise<Record<string, TorrentPeer>> {
+    return {}
+  }
+
+  async getCategories(): Promise<Record<string, TorrentCategory>> {
+    return { Movies: { name: 'Movies' }, Linux: { name: 'Linux' } }
+  }
+
+  async getTags(): Promise<string[]> {
+    return []
+  }
+
+  async recheckTorrents(_hashes: string[]): Promise<void> {
+  }
+
+  async setForceStart(_hashes: string[], _value: boolean): Promise<void> {
+  }
+
+  async setLocation(_hashes: string[], _location: string): Promise<void> {
+  }
+
+  async renameTorrent(_hash: string, _name: string): Promise<void> {
+  }
+
+  async setDownloadLimit(_hashes: string[], _limit: number): Promise<void> {
+  }
+
+  async setUploadLimit(_hashes: string[], _limit: number): Promise<void> {
+  }
+
+  async setCategory(_hashes: string[], _category: string): Promise<void> {
+  }
+
+  async addTags(_hashes: string[], _tags: string[]): Promise<void> {
+  }
+
+  async removeTags(_hashes: string[], _tags: string[]): Promise<void> {
+  }
+
+  async searchPlugins(): Promise<{ name: string; fullName?: string; version: string; enabled: boolean }[]> {
+    return [
         { name: 'Rarbg', version: '1.0', enabled: true },
         { name: 'The Pirate Bay', version: '2.1', enabled: true },
         { name: '1337x', version: '1.5', enabled: false },
-      ],
-    }
+      ]
   }
 
-  async startSearch(_pattern: string): Promise<{ id: number }> {
+  async startSearch(_pattern: string, _plugins = 'enabled', _category = 'all'): Promise<{ id: number }> {
     return { id: 12345 }
   }
 
@@ -447,6 +493,10 @@ class DemoQBittorrentClient {
       ],
       status: 'Stopped',
     }
+  }
+
+  async getLogWarnings(_lastKnownId: number = -1): Promise<LogEntry[]> {
+    return []
   }
 
   async getLogs(_normal: boolean = true, _lastId: number = -1): Promise<LogEntry[]> {

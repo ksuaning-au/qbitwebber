@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Plus, Trash2, ExternalLink, RefreshCw, Rss } from 'lucide-react'
+import { Plus, Trash2, ExternalLink, Rss } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { 
   Dialog, 
   DialogContent, 
@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { useRSSFeeds, useRSSItems, useAddRSSFeed, useRemoveRSSFeed } from '@/hooks/useApi'
 import { toast } from '@/hooks/use-toast'
+import { RSSRules } from './RSSRules'
 
 export function RSSView() {
   const [selectedFeed, setSelectedFeed] = useState<string | null>(null)
@@ -38,9 +39,9 @@ export function RSSView() {
     }
   }
 
-  const handleRemoveFeed = async (uid: string) => {
+  const handleRemoveFeed = async (uid: string, path: string) => {
     try {
-      await removeFeed.mutateAsync(uid)
+      await removeFeed.mutateAsync(path)
       if (selectedFeed === uid) {
         setSelectedFeed(null)
       }
@@ -55,6 +56,7 @@ export function RSSView() {
   }
 
   return (
+    <div className="space-y-6">
     <div className="flex flex-col md:flex-row gap-4">
       {/* Feeds sidebar */}
       <div className="w-full md:w-64 space-y-2">
@@ -62,7 +64,7 @@ export function RSSView() {
           <h2 className="text-lg font-semibold">Feeds</h2>
           <Dialog>
             <DialogTrigger asChild>
-              <Button size="sm" variant="outline">
+              <Button size="sm" variant="outline" aria-label="Add feed" title="Add feed">
                 <Plus className="h-4 w-4" />
               </Button>
             </DialogTrigger>
@@ -109,9 +111,11 @@ export function RSSView() {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
+                    aria-label={`Remove ${feed.title}`}
+                    title="Remove feed"
                     onClick={(e) => {
                       e.stopPropagation()
-                      handleRemoveFeed(feed.uid)
+                      handleRemoveFeed(feed.uid, feed.path)
                     }}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -160,6 +164,8 @@ export function RSSView() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex-shrink-0"
+                        aria-label={`Open ${item.title}`}
+                        title="Open article"
                       >
                         <ExternalLink className="h-4 w-4" />
                       </a>
@@ -175,6 +181,8 @@ export function RSSView() {
           </div>
         )}
       </div>
+    </div>
+    <RSSRules />
     </div>
   )
 }

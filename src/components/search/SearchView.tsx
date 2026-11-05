@@ -2,7 +2,7 @@ import { useState, useMemo, useRef } from 'react'
 import { Search as SearchIcon, Loader2, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Download, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -27,6 +27,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { toast } from '@/hooks/use-toast'
 import { qbitClient } from '@/lib/api'
+import { useSearchPlugins } from '@/hooks/useApi'
+import { getSearchEngineError } from '@/lib/searchErrors'
 import type { SearchResult } from '@/types'
 
 function formatSize(bytes: number): string {
@@ -42,10 +44,25 @@ type SortDirection = 'asc' | 'desc'
 
 const PAGE_SIZE = 20
 
+const SEARCH_CATEGORIES = [
+  { value: 'all', label: 'All categories' },
+  { value: 'anime', label: 'Anime' },
+  { value: 'books', label: 'Books' },
+  { value: 'games', label: 'Games' },
+  { value: 'movies', label: 'Movies' },
+  { value: 'music', label: 'Music' },
+  { value: 'pictures', label: 'Pictures' },
+  { value: 'software', label: 'Software' },
+  { value: 'tv', label: 'TV shows' },
+]
+
 export function SearchView() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const [pluginChoice, setPluginChoice] = useState('enabled')
+  const [category, setCategory] = useState('all')
+  const { data: pluginList } = useSearchPlugins()
   const [searched, setSearched] = useState(false)
   const [sortField, setSortField] = useState<SortField>('nbSeeders')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
@@ -53,14 +70,12 @@ export function SearchView() {
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null)
   const [isDownloading, setIsDownloading] = useState(false)
   const [expandedResult, setExpandedResult] = useState<number | null>(null)
-  const [cancelSearch, setCancelSearch] = useState(false);
   const cancelSearchRef = useRef(false)
   const currentSearchIdRef = useRef<number | null>(null)
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!query.trim()) return
-    setCancelSearch(false)
     cancelSearchRef.current = false
     setIsSearching(true)
     setSearched(true)
@@ -68,7 +83,18 @@ export function SearchView() {
     setCurrentPage(1)
 
     try {
-      const { id } = await qbitClient.startSearch(query)
+      // These are only used to explain problems, so a failure here shouldn't stop the search.
+      const plugins = await qbitClient.searchPlugins().catch(() => null)
+      if (plugins && !plugins.some(plugin => plugin.enabled)) {
+        toast.error(plugins.length > 0
+          ? 'All search plugins are disabled. Enable one in qBittorrent.'
+          : 'No search plugins are installed. Add one in qBittorrent.')
+        return
+      }
+      const warningsBefore = await qbitClient.getLogWarnings().catch(() => null)
+      const lastLogId = warningsBefore?.at(-1)?.id ?? -1
+
+      const { id } = await qbitClient.startSearch(query, pluginChoice, category)
 
       currentSearchIdRef.current = id
 
@@ -77,6 +103,8 @@ export function SearchView() {
         return
       }
       let attempts = 0
+      let finished = false
+      let resultCount = 0
       while (attempts < 60 && !cancelSearchRef.current) {
         await new Promise(resolve => setTimeout(resolve, 1000))
 
@@ -84,28 +112,48 @@ export function SearchView() {
 
         if (searchResults && searchResults.length > 0) {
           setResults(searchResults)
+          resultCount = searchResults.length
         }
 
         if (status === 'Stopped' || status === 'Completed') {
+          finished = true
           break
         }
         attempts++
       }
+
+      if (cancelSearchRef.current) return
+
+      if (!finished) {
+        await qbitClient.stopSearch(id).catch(() => undefined)
+        toast.warning('Search timed out after 1 minute. Showing the results found so far.')
+        return
+      }
+
+      // qBittorrent logs one error per search, without saying which plugin caused it.
+      const warnings = warningsBefore ? await qbitClient.getLogWarnings(lastLogId).catch(() => []) : []
+      const engineError = warnings.map(entry => getSearchEngineError(entry.message)).find(Boolean)
+      if (engineError) {
+        if (resultCount > 0) {
+          toast.warning('A search plugin failed, so results may be incomplete.', { description: engineError })
+        } else {
+          toast.error('Search failed.', { description: engineError })
+        }
+      }
     } catch (err) {
       console.error('Search error:', err)
-      toast.error('Search not available. Please configure search plugins in qBittorrent.')
+      toast.error('Search failed.', {
+        description: err instanceof Error ? err.message : 'Check the search plugins in qBittorrent.',
+      })
     } finally {
       setIsSearching(false)
       currentSearchIdRef.current = null
       cancelSearchRef.current = false
-      setCancelSearch(false)
     }
   }
 
   const handleCancelSearch = async () => {
-    // set both ref and state (state is used for UI, ref for immediate loop control)
     cancelSearchRef.current = true
-    setCancelSearch(true)
 
     const id = currentSearchIdRef.current
     if (id != null) {
@@ -191,14 +239,15 @@ export function SearchView() {
           {/* <CardDescription className='text-xs'>Results {results.length}</CardDescription> */}
         </CardHeader>
         <CardContent className="py-2">
-          <form onSubmit={handleSearch} className="flex gap-2">
+          <form onSubmit={handleSearch} className="space-y-2">
+            <div className="flex gap-2">
             <Input
               placeholder="Search query..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               required
             />
-            <Button type="submit" disabled={isSearching}>
+            <Button type="submit" disabled={isSearching} aria-label="Search" title="Search">
               {isSearching ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
@@ -212,11 +261,34 @@ export function SearchView() {
                 size="icon"
                 onClick={handleCancelSearch}
                 aria-label="Cancel search"
+                title="Cancel search"
                 className="ml-2"
               >
                 <X className="h-4 w-4" />
               </Button>
             )}
+          </div>
+            <div className="grid grid-cols-2 gap-2">
+              <select
+                aria-label="Search plugin"
+                value={pluginChoice}
+                onChange={(e) => setPluginChoice(e.target.value)}
+                className="border-input dark:bg-input/30 h-9 min-w-0 rounded-md border bg-transparent px-2 text-sm"
+              >
+                <option value="enabled">All enabled plugins</option>
+                {(pluginList ?? []).filter(plugin => plugin.enabled).map(plugin => (
+                  <option key={plugin.name} value={plugin.name}>{plugin.fullName || plugin.name}</option>
+                ))}
+              </select>
+              <select
+                aria-label="Search category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="border-input dark:bg-input/30 h-9 min-w-0 rounded-md border bg-transparent px-2 text-sm"
+              >
+                {SEARCH_CATEGORIES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </div>
           </form>
         </CardContent>
       </Card>

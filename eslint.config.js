@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'release']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -18,6 +18,17 @@ export default defineConfig([
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
+    },
+    rules: {
+      // Unused parameters are expected in the demo client, which mirrors the real one.
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    },
+  },
+  {
+    // shadcn components and the auth provider export helpers beside components.
+    files: ['src/components/ui/**', 'src/hooks/useAuth.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
     },
   },
 ])

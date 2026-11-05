@@ -59,6 +59,7 @@ export interface Torrent {
   upspeed: number
   up_speed_avg: number
   uploaded: number
+  downloaded?: number
   uploaded_session: number
   upspeed_avg: number
 }
@@ -105,7 +106,8 @@ export interface TorrentTracker {
   tier: number
   num_peers: number
   num_seeds: number
-  num_leechers: number
+  num_leeches?: number
+  num_leechers?: number
   num_downloaded: number
   last_error: string
   msg: string
@@ -115,6 +117,7 @@ export type TrackerStatus = 0 | 1 | 2 | 3 | 4 | 5 | 6
 
 export interface RSSFeed {
   uid: string
+  path: string
   url: string
   title: string
   unreadCount: number
@@ -138,8 +141,26 @@ export interface RSSRule {
   mustContain: string
   mustNotContain: string
   useRegex: boolean
-  caseSensitive: boolean
-  addToCategory: string
+  affectedFeeds: string[]
+  assignedCategory: string
+  savePath: string
+  torrentParams?: { category?: string; save_path?: string; [key: string]: unknown }
+  [key: string]: unknown
+}
+
+export interface TorrentPeer {
+  ip?: string
+  port?: number
+  client?: string
+  progress?: number
+  dl_speed?: number
+  up_speed?: number
+  connection?: string
+  country?: string
+}
+
+export interface TorrentCategory {
+  name: string
   savePath?: string
 }
 

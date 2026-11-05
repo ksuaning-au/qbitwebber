@@ -1,20 +1,6 @@
-import { AlertCircle, AlertTriangle, Info } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useLogs } from '@/hooks/useApi'
-import type { LogType } from '@/types'
-
-function getLogIcon(type: LogType) {
-  switch (type) {
-    case 'CRITICAL':
-    case 'ERROR':
-      return <AlertCircle className="h-4 w-4" />
-    case 'WARNING':
-      return <AlertTriangle className="h-4 w-4" />
-    default:
-      return <Info className="h-4 w-4" />
-  }
-}
 
 function formatTimestamp(timestamp: number): string {
   return new Date(timestamp * 1000).toLocaleTimeString()

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from 'next-themes'
-import { Sun, Moon, AlertCircle } from 'lucide-react'
+import { Sun, Moon, Monitor } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -16,7 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { useAuth } from '@/hooks/useAuth'
+import { useAppVersion } from '@/hooks/useApi'
 import { qbitClient } from '@/lib/api'
 import { toast } from 'sonner'
 
@@ -70,8 +70,14 @@ const defaultPreferences: Preferences = {
   encryption: 0,
 }
 
+const themeOptions = [
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'system', label: 'System', icon: Monitor },
+]
+
 export function SettingsView() {
-  const { logout, username } = useAuth()
+  const { data: qbittorrentVersion } = useAppVersion()
   const { theme, setTheme } = useTheme()
   const [preferences, setPreferences] = useState<Preferences>(defaultPreferences)
   const [loading, setLoading] = useState(true)
@@ -148,11 +154,6 @@ export function SettingsView() {
     } finally {
       setSaving(false)
     }
-  }
-
-  const handleLogout = async () => {
-    await logout()
-    toast('Logged out')
   }
 
   const handleRevert = async () => {
@@ -262,23 +263,42 @@ export function SettingsView() {
           <Card className="mt-3">
             <CardHeader>
               <CardTitle>Appearance</CardTitle>
-              <CardDescription>Toggle between light and dark mode</CardDescription>
+              <CardDescription>Choose light, dark, or follow your device</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <Label>Theme</Label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                  className="gap-2"
-                >
-                  {theme === 'dark' ? (
-                    <><Moon className="h-4 w-4" /><span>Dark</span></>
-                  ) : (
-                    <><Sun className="h-4 w-4" /><span>Light</span></>
-                  )}
-                </Button>
+                <div className="flex flex-wrap gap-1" role="group" aria-label="Theme">
+                  {themeOptions.map(({ value, label, icon: Icon }) => (
+                    <Button
+                      key={value}
+                      variant={theme === value ? 'secondary' : 'outline'}
+                      size="sm"
+                      aria-pressed={theme === value}
+                      onClick={() => setTheme(value)}
+                      className="gap-2"
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{label}</span>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-3">
+            <CardHeader>
+              <CardTitle>About</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1 text-sm">
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">qbitwebber</span>
+                <span>v{__APP_VERSION__}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">qBittorrent</span>
+                <span>{qbittorrentVersion ?? '-'}</span>
               </div>
             </CardContent>
           </Card>

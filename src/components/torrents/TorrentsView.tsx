@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowUpDownIcon,
+  Search,
   Files
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -41,21 +42,16 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { TorrentFilesDialog } from './TorrentFilesDialog'
-import { useTorrents, usePauseTorrents, useResumeTorrents, useDeleteTorrents } from '@/hooks/useApi'
+import { formatSize } from '@/lib/utils'
+import { filterTorrents, STATUS_FILTERS, type StatusFilter } from '@/lib/torrentFilters'
+import { Input } from '@/components/ui/input'
+import { useCategories, useTags, useTorrents, usePauseTorrents, useResumeTorrents, useDeleteTorrents } from '@/hooks/useApi'
 import type { Torrent } from '@/types'
 
 interface PendingDelete {
   hashes: string[]
   names: string[]
   deleteFiles: boolean
-}
-
-function formatSize(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
 function formatTime(seconds: number): string {
@@ -147,7 +143,7 @@ function SortButton({ field, currentField, direction, onClick, children }: {
 }
 
 export function TorrentsView() {
-  const { data: torrents, isLoading } = useTorrents()
+  const { data: torrents, isLoading, isError } = useTorrents()
   const pauseMutation = usePauseTorrents()
   const resumeMutation = useResumeTorrents()
   const deleteMutation = useDeleteTorrents()
@@ -155,16 +151,32 @@ export function TorrentsView() {
   const [sortField, setSortField] = useState<SortField>('name')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [currentPage, setCurrentPage] = useState(1)
-  const [filesDialogTorrent, setFilesDialogTorrent] = useState<Torrent | null>(null)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [nameFilter, setNameFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [tagFilter, setTagFilter] = useState('')
+  const { data: categories } = useCategories()
+  const { data: tags } = useTags()
+  const [filesDialogHash, setFilesDialogHash] = useState<string | null>(null)
   const [filesDialogTab, setFilesDialogTab] = useState<'details' | 'content'>('content')
   const [expandedCard, setExpandedCard] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null)
   // Separate from pendingDelete so the text stays in place while the prompt fades out.
   const [deletePromptOpen, setDeletePromptOpen] = useState(false)
 
+  // Looked up on every refresh so the dialog shows current data.
+  const filesDialogTorrent = torrents?.find(t => t.hash === filesDialogHash) ?? null
+
+  const filteredTorrents = useMemo(
+    () => filterTorrents(torrents ?? [], { name: nameFilter, status: statusFilter, category: categoryFilter, tag: tagFilter }),
+    [torrents, nameFilter, statusFilter, categoryFilter, tagFilter],
+  )
+
+  const filtersActive = !!nameFilter.trim() || statusFilter !== 'all' || !!categoryFilter || !!tagFilter
+
   const sortedTorrents = useMemo(() => {
-    if (!torrents) return []
-    return [...torrents].sort((a, b) => {
+    return [...filteredTorrents].sort((a, b) => {
       let cmp = 0
       switch (sortField) {
         case 'name':
@@ -194,7 +206,7 @@ export function TorrentsView() {
       }
       return sortDirection === 'asc' ? cmp : -cmp
     })
-  }, [torrents, sortField, sortDirection])
+  }, [filteredTorrents, sortField, sortDirection])
 
   const totalPages = Math.ceil(sortedTorrents.length / PAGE_SIZE)
   const paginatedTorrents = sortedTorrents.slice(
@@ -259,7 +271,7 @@ export function TorrentsView() {
 
   const openFilesDialog = (torrent: Torrent, tab: 'details' | 'content') => {
     setFilesDialogTab(tab)
-    setFilesDialogTorrent(torrent)
+    setFilesDialogHash(torrent.hash)
   }
 
   const handleTorrentDoubleClick = (e: MouseEvent, torrent: Torrent) => {
@@ -272,6 +284,10 @@ export function TorrentsView() {
 
   if (isLoading) {
     return <div className="text-center py-8 text-muted-foreground">Loading torrents...</div>
+  }
+
+  if (isError && !torrents) {
+    return <div className="text-center py-8 text-destructive">Couldn't load torrents. Check the connection to qBittorrent.</div>
   }
 
   if (!torrents || torrents.length === 0) {
@@ -298,9 +314,23 @@ export function TorrentsView() {
         </div>
       )}
 
-      {/* Mobile Sort Dropdown */}
-      <div className="md:hidden flex items-center justify-between">
+      {/* Count, search button, and the phone sort menu */}
+      <div className="flex items-center justify-between gap-2">
         <span className="text-sm text-muted-foreground">{sortedTorrents.length} torrents</span>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={filtersOpen || filtersActive ? 'secondary' : 'outline'}
+            size="icon"
+            className="h-8 w-8"
+            aria-label="Search and filter"
+            title="Search and filter"
+            aria-expanded={filtersOpen}
+            aria-controls="torrent-filters"
+            onClick={() => setFiltersOpen(open => !open)}
+          >
+            <Search className="h-4 w-4" />
+          </Button>
+          <div className="md:hidden">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm">
@@ -336,7 +366,54 @@ export function TorrentsView() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+          </div>
+        </div>
       </div>
+
+      {/* Filters */}
+      {filtersOpen && (
+      <div id="torrent-filters" className="grid grid-cols-2 gap-2 md:flex md:flex-wrap">
+        <Input
+          type="search"
+          autoFocus
+          aria-label="Filter by name"
+          placeholder="Filter by name"
+          value={nameFilter}
+          onChange={(e) => { setNameFilter(e.target.value); setCurrentPage(1) }}
+          className="col-span-2 h-9 md:w-64"
+        />
+        <select
+          aria-label="Filter by status"
+          value={statusFilter}
+          onChange={(e) => { setStatusFilter(e.target.value as StatusFilter); setCurrentPage(1) }}
+          className="border-input dark:bg-input/30 col-span-2 h-9 min-w-0 rounded-md border bg-transparent px-2 text-sm"
+        >
+          {STATUS_FILTERS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+        </select>
+        <select
+          aria-label="Filter by category"
+          value={categoryFilter}
+          onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(1) }}
+          className="border-input dark:bg-input/30 h-9 min-w-0 rounded-md border bg-transparent px-2 text-sm"
+        >
+          <option value="">All categories</option>
+          {Object.keys(categories ?? {}).map(category => <option key={category} value={category}>{category}</option>)}
+        </select>
+        <select
+          aria-label="Filter by tag"
+          value={tagFilter}
+          onChange={(e) => { setTagFilter(e.target.value); setCurrentPage(1) }}
+          className="border-input dark:bg-input/30 h-9 min-w-0 rounded-md border bg-transparent px-2 text-sm"
+        >
+          <option value="">All tags</option>
+          {(tags ?? []).map(tag => <option key={tag} value={tag}>{tag}</option>)}
+        </select>
+      </div>
+      )}
+
+      {sortedTorrents.length === 0 && (
+        <div className="text-center py-4 text-muted-foreground">No torrents match these filters</div>
+      )}
 
       {/* Desktop Table */}
       <div className="hidden md:block">
@@ -348,6 +425,7 @@ export function TorrentsView() {
                   <TableRow>
                     <TableHead className="w-[40px]">
                       <Checkbox
+                        aria-label="Select all"
                         checked={selected.size === sortedTorrents.length && sortedTorrents.length > 0}
                         onCheckedChange={handleSelectAll}
                       />
@@ -406,6 +484,7 @@ export function TorrentsView() {
                       >
                         <TableCell>
                           <Checkbox
+                            aria-label={`Select ${torrent.name}`}
                             checked={selected.has(torrent.hash)}
                             onCheckedChange={(checked) => handleSelect(torrent.hash, !!checked)}
                           />
@@ -443,15 +522,15 @@ export function TorrentsView() {
                         <TableCell className="text-sm">{torrent.ratio.toFixed(2)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 mr-2" onClick={() => isActive ? pauseMutation.mutate([torrent.hash]) : resumeMutation.mutate([torrent.hash])}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 mr-2" aria-label={isActive ? 'Pause' : 'Resume'} title={isActive ? 'Pause' : 'Resume'} onClick={() => isActive ? pauseMutation.mutate([torrent.hash]) : resumeMutation.mutate([torrent.hash])}>
                               {isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openFilesDialog(torrent, 'content')}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Files" title="Files" onClick={() => openFilesDialog(torrent, 'content')}>
                               <Files className="h-4 w-4 mr-2" />
                             </Button>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Delete" title="Delete">
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
@@ -490,7 +569,8 @@ export function TorrentsView() {
               <CardContent className="px-3">
                 <div className="flex items-start gap-2">
                   <Checkbox
-                    checked={selected.has(torrent.hash)}
+                    aria-label={`Select ${torrent.name}`}
+                            checked={selected.has(torrent.hash)}
                     onCheckedChange={(checked) => handleSelect(torrent.hash, !!checked)}
                     className="mt-0.5 flex-shrink-0"
                   />
@@ -538,7 +618,7 @@ export function TorrentsView() {
                       </div>
                     )}
                   </div>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0" onClick={() => setExpandedCard(isExpanded ? null : torrent.hash)}>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0" aria-label={isExpanded ? 'Hide details' : 'Show details'} title={isExpanded ? 'Hide details' : 'Show details'} aria-expanded={isExpanded} onClick={() => setExpandedCard(isExpanded ? null : torrent.hash)}>
                     {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                   </Button>
                 </div>
@@ -550,15 +630,27 @@ export function TorrentsView() {
 
                 {/* Action buttons - always visible on mobile */}
                 <div className="flex items-center gap-1 mt-1">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => isActive ? pauseMutation.mutate([torrent.hash]) : resumeMutation.mutate([torrent.hash])}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={isActive ? 'Pause' : 'Resume'} title={isActive ? 'Pause' : 'Resume'} onClick={() => isActive ? pauseMutation.mutate([torrent.hash]) : resumeMutation.mutate([torrent.hash])}>
                     {isActive ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openFilesDialog(torrent, 'content')}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Files" title="Files" onClick={() => openFilesDialog(torrent, 'content')}>
                     <Files className="h-3 w-3" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => requestDelete([torrent], false)}>
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Delete" title="Delete">
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={() => requestDelete([torrent], false)}>
+                        Delete
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => requestDelete([torrent], true)} className="text-destructive">
+                        Delete + Files
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </CardContent>
             </Card>
@@ -618,7 +710,7 @@ export function TorrentsView() {
         torrent={filesDialogTorrent}
         initialTab={filesDialogTab}
         open={!!filesDialogTorrent}
-        onOpenChange={(open) => !open && setFilesDialogTorrent(null)}
+        onOpenChange={(open) => !open && setFilesDialogHash(null)}
       />
     </div>
   )

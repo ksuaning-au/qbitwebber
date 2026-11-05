@@ -1,5 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { qbitClient } from '@/lib/api'
+import { toast } from '@/hooks/use-toast'
+import type { RSSRule } from '@/types'
+
+function showActionError(message: string, error: unknown) {
+  toast.error(message, { description: error instanceof Error ? error.message : undefined })
+}
 
 export function useAppVersion() {
   return useQuery({
@@ -40,6 +46,7 @@ export function useTorrentFiles(hash: string | null) {
     queryKey: ['torrent', hash, 'files'],
     queryFn: () => hash ? qbitClient.getTorrentFiles(hash) : Promise.resolve([]),
     enabled: !!hash,
+    refetchInterval: 5000,
   })
 }
 
@@ -47,7 +54,81 @@ export function useTorrentTrackers(hash: string) {
   return useQuery({
     queryKey: ['torrent', hash, 'trackers'],
     queryFn: () => qbitClient.getTorrentTrackers(hash),
-    enabled: !!hash && !!qbitClient.isConfigured(),
+    enabled: !!hash,
+    refetchInterval: 5000,
+  })
+}
+
+export function useTorrentPeers(hash: string) {
+  return useQuery({
+    queryKey: ['torrent', hash, 'peers'],
+    queryFn: () => qbitClient.getTorrentPeers(hash),
+    enabled: !!hash,
+    refetchInterval: 5000,
+  })
+}
+
+export function useCategories() {
+  return useQuery({
+    queryKey: ['categories'],
+    queryFn: () => qbitClient.getCategories(),
+  })
+}
+
+export function useTags() {
+  return useQuery({
+    queryKey: ['tags'],
+    queryFn: () => qbitClient.getTags(),
+  })
+}
+
+export function useSearchPlugins() {
+  return useQuery({
+    queryKey: ['search', 'plugins'],
+    queryFn: () => qbitClient.searchPlugins(),
+  })
+}
+
+// For one-off torrent actions: shows failures and refreshes the list afterward.
+export function useTorrentAction() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ work }: { work: () => Promise<unknown>; failed: string }) => work(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['torrents'] })
+      queryClient.invalidateQueries({ queryKey: ['tags'] })
+    },
+    onError: (error, { failed }) => showActionError(failed, error),
+  })
+}
+
+export function useRSSRules() {
+  return useQuery({
+    queryKey: ['rss', 'rules'],
+    queryFn: () => qbitClient.getRSSRules(),
+  })
+}
+
+export function useSetRSSRule() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ name, rule }: { name: string; rule: RSSRule }) => qbitClient.setRSSRule(name, rule),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rss', 'rules'] })
+    },
+  })
+}
+
+export function useRemoveRSSRule() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (name: string) => qbitClient.removeRSSRule(name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rss', 'rules'] })
+    },
   })
 }
 
@@ -83,6 +164,7 @@ export function useDeleteTorrents() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['torrents'] })
     },
+    onError: (error) => showActionError('Failed to delete', error),
   })
 }
 
@@ -106,6 +188,7 @@ export function usePauseTorrents() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['torrents'] })
     },
+    onError: (error) => showActionError('Failed to pause', error),
   })
 }
 
@@ -117,6 +200,7 @@ export function useResumeTorrents() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['torrents'] })
     },
+    onError: (error) => showActionError('Failed to resume', error),
   })
 }
 
@@ -151,7 +235,7 @@ export function useRemoveRSSFeed() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: (uid: string) => qbitClient.removeRSSFeed(uid),
+    mutationFn: (path: string) => qbitClient.removeRSSFeed(path),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rss'] })
     },

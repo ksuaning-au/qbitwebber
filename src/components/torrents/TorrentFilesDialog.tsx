@@ -1,8 +1,6 @@
-import { useState, type ReactNode } from 'react'
-import { FolderOpen, File, CheckSquare, Square, Download, X } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { FolderOpen, File, CheckSquare, Square, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -10,18 +8,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useTorrentFiles, useSetFilePriority, useWebApiVersion } from '@/hooks/useApi'
+import { useTorrentFiles, useTorrentPeers, useTorrentTrackers, useSetFilePriority, useWebApiVersion } from '@/hooks/useApi'
+import { TorrentActions } from './TorrentActions'
 import { toast } from '@/hooks/use-toast'
 import { getFileDownloadUrl, supportsFileDownload } from '@/lib/fileDownloads'
+import { formatSize } from '@/lib/utils'
 import type { Torrent, TorrentFile } from '@/types'
-
-function formatSize(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
-}
 
 interface FileDownloadButtonProps {
   // null when the file is unavailable; `reason` then says why.
@@ -178,6 +170,49 @@ function FileTree({ files, renderDownload, onPriorityChange }: FileTreeProps) {
   )
 }
 
+function formatDate(seconds: number | undefined): string {
+  return seconds && seconds > 0 ? new Date(seconds * 1000).toLocaleString() : '-'
+}
+
+function TrackersList({ hash }: { hash: string }) {
+  const { data: trackers, isLoading } = useTorrentTrackers(hash)
+  if (isLoading) return <div className="text-center py-8 text-muted-foreground">Loading trackers...</div>
+  // qBittorrent lists DHT, PeX, and LSD here as pseudo-trackers, with ** around their names.
+  const real = (trackers ?? []).filter(tracker => !tracker.url.startsWith('**'))
+  if (real.length === 0) return <div className="text-center py-8 text-muted-foreground">No trackers</div>
+  return (
+    <ul className="divide-y text-sm">
+      {real.map(tracker => (
+        <li key={tracker.url} className="px-2 py-2">
+          <p className="break-all">{tracker.url}</p>
+          <p className="text-xs text-muted-foreground">
+            Seeds {Math.max(tracker.num_seeds ?? 0, 0)} · Peers {Math.max(tracker.num_leeches ?? tracker.num_leechers ?? 0, 0)}{tracker.msg ? ` · ${tracker.msg}` : ''}
+          </p>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function PeersList({ hash }: { hash: string }) {
+  const { data: peers, isLoading } = useTorrentPeers(hash)
+  if (isLoading) return <div className="text-center py-8 text-muted-foreground">Loading peers...</div>
+  const entries = Object.entries(peers ?? {})
+  if (entries.length === 0) return <div className="text-center py-8 text-muted-foreground">No peers connected</div>
+  return (
+    <ul className="divide-y text-sm">
+      {entries.map(([id, peer]) => (
+        <li key={id} className="px-2 py-2">
+          <p className="break-all">{peer.ip ?? id}{peer.port ? `:${peer.port}` : ''}</p>
+          <p className="text-xs text-muted-foreground">
+            {peer.client || 'Unknown client'} · {Math.round((peer.progress ?? 0) * 100)}% · ↓ {formatSize(peer.dl_speed ?? 0)}/s · ↑ {formatSize(peer.up_speed ?? 0)}/s
+          </p>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 interface TorrentFilesDialogProps {
   torrent: Torrent | null
   initialTab?: 'details' | 'content'
@@ -188,7 +223,6 @@ interface TorrentFilesDialogProps {
 export function TorrentFilesDialog({ torrent, initialTab = 'content', open, onOpenChange }: TorrentFilesDialogProps) {
   const { data: files, isLoading } = useTorrentFiles(torrent?.hash ?? null)
   const setPriority = useSetFilePriority()
-  const [selectedHash, setSelectedHash] = useState<string | null>(null)
   const webApiVersion = useWebApiVersion()
 
   const handlePriorityChange = async (id: string, priority: number) => {
@@ -227,12 +261,19 @@ export function TorrentFilesDialog({ torrent, initialTab = 'content', open, onOp
   const details: [string, string][] = [
     ['Size', formatSize(torrent.size)],
     ['Progress', `${Math.round(torrent.progress * 100)}%`],
+    ['Download speed', `${formatSize(torrent.dlspeed)}/s`],
+    ['Upload speed', `${formatSize(torrent.upspeed)}/s`],
+    ['Downloaded', formatSize(torrent.downloaded ?? 0)],
+    ['Uploaded', formatSize(torrent.uploaded ?? 0)],
+    ['Added', formatDate(torrent.added_on)],
+    ['Completed', formatDate(torrent.completion_on)],
     ['Ratio', torrent.ratio.toFixed(2)],
     ['Seeds', String(torrent.num_seeds)],
     ['Peers', String(torrent.num_leechs)],
     ['Save path', torrent.save_path],
     ['Category', torrent.category || '-'],
     ['Tags', torrent.tags || '-'],
+    ['Hash', torrent.hash],
   ]
 
   return (
@@ -247,9 +288,11 @@ export function TorrentFilesDialog({ torrent, initialTab = 'content', open, onOp
         )}
 
         <Tabs defaultValue={initialTab} className="flex-1 min-h-0">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="content">Content</TabsTrigger>
+            <TabsTrigger value="trackers">Trackers</TabsTrigger>
+            <TabsTrigger value="peers">Peers</TabsTrigger>
           </TabsList>
 
           <TabsContent value="details" className="overflow-y-auto">
@@ -279,6 +322,16 @@ export function TorrentFilesDialog({ torrent, initialTab = 'content', open, onOp
             ) : (
               <div className="text-center py-4 text-muted-foreground">No completed files yet</div>
             )}
+
+            <TorrentActions key={torrent.hash} torrent={torrent} />
+          </TabsContent>
+
+          <TabsContent value="trackers" className="overflow-y-auto">
+            <TrackersList hash={torrent.hash} />
+          </TabsContent>
+
+          <TabsContent value="peers" className="overflow-y-auto">
+            <PeersList hash={torrent.hash} />
           </TabsContent>
 
           <TabsContent value="content" className="flex flex-col min-h-0 overflow-hidden">

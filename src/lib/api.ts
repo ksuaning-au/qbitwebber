@@ -8,10 +8,13 @@ import type {
   RSSRule,
   SearchResult,
   LogEntry,
-  TransferInfo
+  TransferInfo,
+  TorrentCategory,
+  TorrentPeer
 } from '@/types'
 
 import { demoClient } from './demoClient'
+import { flattenRSSTree, type RawRSSTree } from './rss'
 
 // All API paths are relative (no leading slash) so the UI also works when
 // qBittorrent is served from a sub-path behind a reverse proxy,
@@ -200,6 +203,59 @@ class QBittorrentClient {
     })
   }
 
+  private async post(endpoint: string, params: Record<string, string>): Promise<void> {
+    await this.request(endpoint, { method: 'POST', body: new URLSearchParams(params) })
+  }
+
+  async getTorrentPeers(hash: string): Promise<Record<string, TorrentPeer>> {
+    const { peers } = await this.request<{ peers?: Record<string, TorrentPeer> }>(`sync/torrentPeers?hash=${hash}&rid=0`)
+    return peers ?? {}
+  }
+
+  async getCategories(): Promise<Record<string, TorrentCategory>> {
+    return this.request('torrents/categories')
+  }
+
+  async getTags(): Promise<string[]> {
+    return this.request('torrents/tags')
+  }
+
+  async recheckTorrents(hashes: string[]): Promise<void> {
+    await this.post('torrents/recheck', { hashes: hashes.join('|') })
+  }
+
+  async setForceStart(hashes: string[], value: boolean): Promise<void> {
+    await this.post('torrents/setForceStart', { hashes: hashes.join('|'), value: String(value) })
+  }
+
+  async setLocation(hashes: string[], location: string): Promise<void> {
+    await this.post('torrents/setLocation', { hashes: hashes.join('|'), location })
+  }
+
+  async renameTorrent(hash: string, name: string): Promise<void> {
+    await this.post('torrents/rename', { hash, name })
+  }
+
+  async setDownloadLimit(hashes: string[], limit: number): Promise<void> {
+    await this.post('torrents/setDownloadLimit', { hashes: hashes.join('|'), limit: String(limit) })
+  }
+
+  async setUploadLimit(hashes: string[], limit: number): Promise<void> {
+    await this.post('torrents/setUploadLimit', { hashes: hashes.join('|'), limit: String(limit) })
+  }
+
+  async setCategory(hashes: string[], category: string): Promise<void> {
+    await this.post('torrents/setCategory', { hashes: hashes.join('|'), category })
+  }
+
+  async addTags(hashes: string[], tags: string[]): Promise<void> {
+    await this.post('torrents/addTags', { hashes: hashes.join('|'), tags: tags.join(',') })
+  }
+
+  async removeTags(hashes: string[], tags: string[]): Promise<void> {
+    await this.post('torrents/removeTags', { hashes: hashes.join('|'), tags: tags.join(',') })
+  }
+
   async getTorrentTrackers(hash: string): Promise<TorrentTracker[]> {
     return this.request<TorrentTracker[]>(`torrents/trackers?hash=${hash}`)
   }
@@ -260,31 +316,22 @@ class QBittorrentClient {
   }
 
   async getRSSFeeds(): Promise<{ feeds: RSSFeed[] }> {
-    return this.request('rss/feeds')
+    const tree = await this.request<RawRSSTree>('rss/items?withData=true')
+    return { feeds: flattenRSSTree(tree).map(({ feed }) => feed) }
   }
 
   async getRSSItems(feedUid: string): Promise<{ articles: RSSItem[] }> {
-    return this.request(`rss/items?uid=${feedUid}`)
+    const tree = await this.request<RawRSSTree>('rss/items?withData=true')
+    return { articles: flattenRSSTree(tree).find(({ feed }) => feed.uid === feedUid)?.articles ?? [] }
   }
 
   async addRSSFeed(url: string): Promise<void> {
-    const formData = new URLSearchParams()
-    formData.append('url', url)
-
-    await this.request('rss/addFeed', {
-      method: 'POST',
-      body: formData,
-    })
+    // The path is the feed's name in qBittorrent, where a backslash would mean a folder.
+    await this.post('rss/addFeed', { url, path: url.replaceAll('\\', '/') })
   }
 
-  async removeRSSFeed(uid: string): Promise<void> {
-    const formData = new URLSearchParams()
-    formData.append('uid', uid)
-
-    await this.request('rss/removeFeed', {
-      method: 'POST',
-      body: formData,
-    })
+  async removeRSSFeed(path: string): Promise<void> {
+    await this.post('rss/removeItem', { path })
   }
 
   async markAsRead(uid: string, articleId?: string): Promise<void> {
@@ -298,16 +345,24 @@ class QBittorrentClient {
     })
   }
 
-  async getRSSRules(): Promise<{ rules: RSSRule[] }> {
+  async getRSSRules(): Promise<Record<string, RSSRule>> {
     return this.request('rss/rules')
   }
 
-  async searchPlugins(): Promise<{ plugins: { name: string; version: string; enabled: boolean }[] }> {
+  async setRSSRule(name: string, rule: RSSRule): Promise<void> {
+    await this.post('rss/setRule', { ruleName: name, ruleDef: JSON.stringify(rule) })
+  }
+
+  async removeRSSRule(name: string): Promise<void> {
+    await this.post('rss/removeRule', { ruleName: name })
+  }
+
+  async searchPlugins(): Promise<{ name: string; fullName?: string; version: string; enabled: boolean }[]> {
     return this.request('search/plugins')
   }
 
-  async startSearch(pattern: string): Promise<{ id: number }> {
-    const body = `pattern=${encodeURIComponent(pattern).replace(/%20/g, '+')}&plugins=enabled&category=all`
+  async startSearch(pattern: string, plugins = 'enabled', category = 'all'): Promise<{ id: number }> {
+    const body = `pattern=${encodeURIComponent(pattern).replace(/%20/g, '+')}&plugins=${encodeURIComponent(plugins)}&category=${encodeURIComponent(category)}`
 
     return this.request('search/start', {
       method: 'POST',
@@ -331,6 +386,11 @@ class QBittorrentClient {
 
   async getSearchResults(id: number): Promise<{ results: SearchResult[]; status: string }> {
     return this.request(`search/results?id=${id}`)
+  }
+
+  /** Warnings logged after the given log entry id (-1 for all of them). */
+  async getLogWarnings(lastKnownId: number = -1): Promise<LogEntry[]> {
+    return this.request(`log/main?normal=false&info=false&warning=true&critical=false&last_known_id=${lastKnownId}`)
   }
 
   async getLogs(normal: boolean = true, lastId: number = -1): Promise<LogEntry[]> {

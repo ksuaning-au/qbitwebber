@@ -50,6 +50,19 @@ npm install
 npm run dev
 ```
 
+Run the checks with `npm run lint`, `npm test`, and `npx tsc -b`. CI runs these on every push and pull request.
+
+## Deploying
+
+`scripts/deploy.sh` copies a release to your server with `rsync` over SSH, then checks that the server is serving it. Put your settings in a `.deploy.env` file, which git ignores:
+
+```bash
+DEPLOY_TARGET=user@host:/path/to/qbitwebber
+DEPLOY_URL=https://example.com/qbittorrent/
+```
+
+`DEPLOY_TARGET` is the folder set as **Files location** in qBittorrent. Then run `npm run deploy` for the latest release, or `scripts/deploy.sh --zip file.zip` for a local build.
+
 ## Demo Mode
 
 Run without a backend for demonstration purposes:
